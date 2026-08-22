@@ -1,0 +1,39 @@
+[
+    {
+        "id": "qwen-7b",
+        "model_name": "qwen2.5-coder-7b",
+        "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "gpu_id": 0,
+        "port": 8000,
+        "max_model_len": 4096,
+        "active": true
+    },
+    {
+        "id": "codellama-7b",
+        "model_name": "codellama-7b",
+        "hf_repo": "codellama/CodeLlama-7b-Instruct-hf",
+        "gpu_id": 1,
+        "port": 8001,
+        "max_model_len": 4096,
+        "active": true
+    },
+    {
+        "id": "deepseek-coder",
+        "model_name": "deepseek-coder-6.7b",
+        "hf_repo": "deepseek-ai/deepseek-coder-6.7b-instruct",
+        "gpu_id": 0,
+        "port": 8002,
+        "max_model_len": 4096,
+        "active": false
+    },
+    {
+        "id": "qwen-7b",
+        "model_name": "qwen2.5-coder-7b",
+        "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "gpu_id": 0,
+        "port": 8000,
+        "max_model_len": 4096,
+        "vllm_image": "vllm/vllm-openai:v0.5.4-cu118",
+        "active": true
+    }
+]

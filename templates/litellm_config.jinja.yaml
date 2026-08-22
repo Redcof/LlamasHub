@@ -1,0 +1,7 @@
+model_list:
+{% for model in active_models %}
+  - model_name: {{ model.model_name }}
+    litellm_params:
+      model: hosted_vllm/{{ model.hf_repo }}
+      api_base: http://vllm-{{ model.id }}:{{ model.port }}/v1
+{% endfor %}

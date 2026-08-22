@@ -1,0 +1,15 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version
+    rev: v0.9.6
+    hooks:
+      # Run the linter and fix auto-fixable errors
+      - id: ruff
+        args: [--fix]
+      # Run the code formatter
+      - id: ruff-format
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2 # Use the latest stable version
+    hooks:
+      - id: gitleaks
