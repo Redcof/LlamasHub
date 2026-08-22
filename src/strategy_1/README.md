@@ -1,3 +1,4 @@
+
 # vLLM Multi-Model Deployment Orchestrator
 
 This project generates and launches a Docker Compose stack for multiple vLLM inference servers behind a LiteLLM proxy, with PostgreSQL available for LiteLLM data. Model, GPU, port, credential, and image settings are kept in configuration files rather than hard-coded in the deployment command.
@@ -230,4 +231,11 @@ If a port, GPU, or environment value is invalid, the generator exits with a deta
 - Keep `.env`, generated credentials, and model cache permissions limited to the deployment operator.
 - Pin image tags as provided; avoid changing them to `:latest` in production.
 - Ensure each model fits the assigned GPU. The validator prevents GPU sharing but cannot measure model memory requirements.
+
+## 11. License and Attribution
+
+This project is licensed under the Apache License 2.0. Commercial use is permitted,
+provided that copyright, license, and attribution notices are preserved.
+
+See the repository [LICENSE](../../LICENSE) and [NOTICE](../../NOTICE) files for details.
 
