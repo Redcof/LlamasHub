@@ -129,6 +129,8 @@ Optional values:
 - `API_HOSTNAME` and `OBSERVABILITY_HOSTNAME` configure the HTTPS names served by Nginx.
 - `NGINX_TLS_CERTIFICATE` and `NGINX_TLS_CERTIFICATE_KEY` identify the internal-CA certificate and
     key files mounted into Nginx.
+- `NGINX_ENABLED` defaults to `true`. Set it to `false` to omit the Nginx service, TLS mounts, and
+    `nginx.conf`; LiteLLM is then available directly on port `4000`.
 
 Use absolute, writable host paths for `PGDATA_PATH` and `HF_HOME_PATH`. Do not commit real credentials or API keys.
 
@@ -272,10 +274,11 @@ docker compose down -v
 | dstack model service | `https://<DSTACK_GATEWAY>/<service>` | dstack-assigned | Developers, applications | Scheduler-managed vLLM service and `/health` | External dstack gateway/auth |
 | dstack control plane | Organization-provided dashboard/server URI | Organization-defined | Admins | Provisioning, scheduling, logs, and operations | External dstack SSO/RBAC |
 
-The generated Compose stack publishes only Nginx ports `80` and `443`. Direct ports `4000`, `3000`,
-vLLM model ports, PostgreSQL, ClickHouse, Redis, and MinIO are intentionally private. For an
-air-gapped deployment, mirror all pinned images before isolation and provision internal DNS and CA
-certificates first.
+With `NGINX_ENABLED=true`, the generated Compose stack publishes only Nginx ports `80` and `443`.
+Direct ports `4000`, `3000`, vLLM model ports, PostgreSQL, ClickHouse, Redis, and MinIO are
+intentionally private. With `NGINX_ENABLED=false`, Nginx and its TLS files are omitted and
+LiteLLM is published directly on port `4000`. For an air-gapped deployment, mirror all pinned
+images before isolation and provision internal DNS and CA certificates first.
 
 ## 10. Updating the Deployment
 

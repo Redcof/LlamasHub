@@ -361,6 +361,7 @@ class ConfigGenerator:
         db_pass = os.environ["POSTGRES_PASSWORD"]
         db_name = os.environ["POSTGRES_DB"]
         langfuse_enabled = os.environ.get("LANGFUSE_ENABLED", "true").lower() == "true"
+        nginx_enabled = os.environ.get("NGINX_ENABLED", "true").lower() == "true"
 
         # Dynamically derive DATABASE_URL if not explicitly specified in .env
         db_url = os.environ.get(
@@ -409,6 +410,7 @@ class ConfigGenerator:
             "nginx_tls_certificate_key": os.environ.get(
                 "NGINX_TLS_CERTIFICATE_KEY", "./certs/server.key"
             ),
+            "nginx_enabled": nginx_enabled,
         }
         return cls._render_file(constants.DOCKER_COMPOSE_TEMPLATE_PATH, context)
 
@@ -498,15 +500,17 @@ def main():
     if backend == "compose":
         litellm_yaml = ConfigGenerator.build_litellm_yaml(active_models)
         docker_compose_yaml = ConfigGenerator.build_docker_compose(active_models)
-        nginx_config = ConfigGenerator.build_nginx_config()
+        nginx_enabled = os.environ.get("NGINX_ENABLED", "true").lower() == "true"
+        nginx_config = ConfigGenerator.build_nginx_config() if nginx_enabled else None
 
         with open(constants.LITELLM_CONFIG_OUTPUT, "w") as f:
             f.write(litellm_yaml)
 
         with open(constants.DOCKER_COMPOSE_OUTPUT, "w") as f:
             f.write(docker_compose_yaml)
-        with open(constants.NGINX_CONFIG_OUTPUT, "w") as f:
-            f.write(nginx_config)
+        if nginx_config is not None:
+            with open(constants.NGINX_CONFIG_OUTPUT, "w") as f:
+                f.write(nginx_config)
     else:
         os.makedirs(constants.DSTACK_OUTPUT_DIR, exist_ok=True)
         for workload in workloads:

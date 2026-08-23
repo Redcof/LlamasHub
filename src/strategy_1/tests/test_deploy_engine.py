@@ -255,6 +255,29 @@ class TestDeployEngine(unittest.TestCase):
         finally:
             del os.environ["LANGFUSE_ENABLED"]
 
+    def test_nginx_can_be_disabled_with_one_variable(self):
+        os.environ["NGINX_ENABLED"] = "false"
+        try:
+            compose = ConfigGenerator.build_docker_compose(
+                [
+                    {
+                        "id": "qwen",
+                        "model_name": "qwen",
+                        "hf_repo": "org/qwen",
+                        "gpu_id": 0,
+                        "port": 8000,
+                        "max_model_len": 4096,
+                    }
+                ]
+            )
+            self.assertNotIn("nginx:", compose)
+            self.assertNotIn("./nginx.conf:/etc/nginx/nginx.conf:ro", compose)
+            self.assertNotIn("./certs/server.crt", compose)
+            self.assertNotIn('"80:80"', compose)
+            self.assertNotIn('"443:443"', compose)
+        finally:
+            del os.environ["NGINX_ENABLED"]
+
     def test_jinja_rendering_and_env_variables(self):
         """Verify Jinja2 template rendering produces correct credentials and DB URL."""
         models = [

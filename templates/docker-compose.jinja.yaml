@@ -99,6 +99,7 @@ services:
       retries: 10
 {% endif %}
 
+{% if nginx_enabled %}
   nginx:
     image: {{ nginx_image }}
     restart: always
@@ -119,6 +120,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    {% endif %}
 
   litellm:
     image: {{ litellm_image }}
@@ -128,9 +130,9 @@ services:
       - LITELLM_MASTER_KEY={{ litellm_master_key }}
       - UI_USERNAME={{ ui_username }}
       - UI_PASSWORD={{ ui_password }}
-    {% if langfuse_enabled %}
+{% if nginx_enabled and langfuse_enabled %}
       - LANGFUSE_HOST={{ langfuse_host }}
-    {% endif %}
+{% endif %}
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
     env_file:
