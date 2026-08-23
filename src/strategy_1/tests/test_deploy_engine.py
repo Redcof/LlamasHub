@@ -207,6 +207,54 @@ class TestDeployEngine(unittest.TestCase):
         self.assertIn("image: langfuse/langfuse:2.95.9", compose)
         self.assertIn("LANGFUSE_HOST=http://langfuse:3000", compose)
 
+    def test_nginx_routes_public_services_over_tls(self):
+        nginx = ConfigGenerator.build_nginx_config()
+        self.assertIn("listen 443 ssl", nginx)
+        self.assertIn("server_name api.example.internal", nginx)
+        self.assertIn("proxy_pass http://litellm", nginx)
+        self.assertIn("server_name observability.example.internal", nginx)
+        self.assertIn("proxy_pass http://langfuse", nginx)
+
+        compose = ConfigGenerator.build_docker_compose(
+            [
+                {
+                    "id": "qwen",
+                    "model_name": "qwen",
+                    "hf_repo": "org/qwen",
+                    "gpu_id": 0,
+                    "port": 8000,
+                    "max_model_len": 4096,
+                    "image": "vllm/vllm-openai:v0.6.3",
+                }
+            ]
+        )
+        self.assertIn('"80:80"', compose)
+        self.assertIn('"443:443"', compose)
+        self.assertNotIn('"4000:4000"', compose)
+        self.assertNotIn('"3000:3000"', compose)
+
+    def test_nginx_omits_langfuse_route_when_disabled(self):
+        os.environ["LANGFUSE_ENABLED"] = "false"
+        try:
+            nginx = ConfigGenerator.build_nginx_config()
+            compose = ConfigGenerator.build_docker_compose(
+                [
+                    {
+                        "id": "qwen",
+                        "model_name": "qwen",
+                        "hf_repo": "org/qwen",
+                        "gpu_id": 0,
+                        "port": 8000,
+                        "max_model_len": 4096,
+                    }
+                ]
+            )
+            self.assertNotIn("upstream langfuse", nginx)
+            self.assertNotIn("observability.example.internal", nginx)
+            self.assertNotIn("langfuse:", compose)
+        finally:
+            del os.environ["LANGFUSE_ENABLED"]
+
     def test_jinja_rendering_and_env_variables(self):
         """Verify Jinja2 template rendering produces correct credentials and DB URL."""
         models = [

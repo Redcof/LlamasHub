@@ -67,8 +67,6 @@ services:
   langfuse:
     image: {{ langfuse_image }}
     restart: always
-    ports:
-      - "3000:3000"
     environment:
       DATABASE_URL: {{ langfuse_database_url }}
       NEXTAUTH_URL: http://localhost:3000
@@ -101,11 +99,30 @@ services:
       retries: 10
 {% endif %}
 
+  nginx:
+    image: {{ nginx_image }}
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - {{ nginx_tls_certificate }}:/etc/nginx/tls/server.crt:ro
+      - {{ nginx_tls_certificate_key }}:/etc/nginx/tls/server.key:ro
+    depends_on:
+      - litellm
+{% if langfuse_enabled %}
+      - langfuse
+{% endif %}
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   litellm:
     image: {{ litellm_image }}
     restart: always
-    ports:
-      - "4000:4000"
     environment:
       - DATABASE_URL={{ db_url }}
       - LITELLM_MASTER_KEY={{ litellm_master_key }}

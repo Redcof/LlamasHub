@@ -15,18 +15,18 @@ The Python tooling is installed into a local virtual environment managed by [`uv
  │  ┌──────────────┐       ┌─────────────────┐       ┌──────────────────┐   │
  │  │ vLLM model 1 │──────▶│                 │──────▶│                  │   │
  │  │ GPU N / port │       │ LiteLLM proxy   │       │ PostgreSQL       │   │
- │  ├──────────────┤       │ port 4000       │       │ port 5432        │   │
+ │  ├──────────────┤       │ Nginx 80/443   │       │ port 5432        │   │
  │  │ vLLM model 2 │──────▶│                 │       │                  │   │
  │  │ GPU M / port │       └────────┬────────┘       │                  │   │
  │  └──────────────┘                │                └────────┬─────────┘   │
  └──────────────────────────────────┼─────────────────────────┼────────────-┘
                                                                         │                         │
                                                  OpenAI-compatible API        Named volume: pgdata
-                                                 http://HOST:4000/v1
+                                             https://api.<BASE_DOMAIN>/v1
 ```
 
 - Each active model becomes a `vllm-<id>` service. LiteLLM reaches it by its Compose service name, for example `http://vllm-qwen-7b:8000/v1`.
-- LiteLLM is the public API and is the only service published on host port `4000` by the template.
+- Nginx is the public boundary on host ports `80` and `443`; LiteLLM listens privately on port `4000`.
 - PostgreSQL is reachable inside the Compose network as `db:5432`.
 - A model uses one GPU and one host port. The validator rejects duplicate GPU IDs and duplicate ports.
 
@@ -43,7 +43,8 @@ The Python tooling is installed into a local virtual environment managed by [`uv
 ├── setup_uv.sh                  # Interactive uv environment setup
 ├── templates/
 │   ├── docker-compose.jinja.yaml # Compose template
-│   └── litellm_config.jinja.yaml # LiteLLM model-list template
+│   ├── litellm_config.jinja.yaml # LiteLLM model-list template
+│   └── nginx.jinja.conf           # TLS reverse-proxy template
 ├── src/
 │   ├── constants.py              # File names, image tags, and CUDA matching
 │   └── strategy_1/
@@ -58,6 +59,7 @@ Generated in the project root by the deployment engine:
 ```text
 docker-compose.yml       # Generated Compose stack
 litellm_config.yaml      # Generated LiteLLM model list
+nginx.conf               # Generated TLS reverse-proxy configuration
 dstack/<model>.dstack.yml # Generated dstack model services when selected
 ```
 
@@ -76,6 +78,8 @@ Docker pulls the fixed image tags selected by the generator:
 - vLLM: normally `vllm/vllm-openai:v0.6.3`, selected from the detected CUDA version
 - LiteLLM: `ghcr.io/berriai/litellm:v1.52.0`
 - PostgreSQL: `postgres:15.5-alpine`
+- Langfuse: `langfuse/langfuse:2.95.9`, with ClickHouse, Redis, and MinIO dependencies
+- Nginx: `nginx:1.27.3-alpine`
 
 The vLLM containers download each configured Hugging Face repository on first use and cache it at the host path in `HF_HOME_PATH`, mounted as `/root/.cache/huggingface` in each vLLM container. Image selection can be overridden with `VLLM_IMAGE_OVERRIDE`, and an individual model can set `vllm_image`.
 
@@ -122,6 +126,9 @@ Optional values:
 - Set `LANGFUSE_ENABLED=false` to omit the self-hosted Langfuse services and disable the default
     callback. The generated Compose stack includes Langfuse, ClickHouse, Redis, and MinIO with
     telemetry to the public cloud disabled.
+- `API_HOSTNAME` and `OBSERVABILITY_HOSTNAME` configure the HTTPS names served by Nginx.
+- `NGINX_TLS_CERTIFICATE` and `NGINX_TLS_CERTIFICATE_KEY` identify the internal-CA certificate and
+    key files mounted into Nginx.
 
 Use absolute, writable host paths for `PGDATA_PATH` and `HF_HOME_PATH`. Do not commit real credentials or API keys.
 
@@ -135,7 +142,7 @@ Use absolute, writable host paths for `PGDATA_PATH` and `HF_HOME_PATH`. Do not c
 | `model_name` | yes | Name exposed through LiteLLM |
 | `hf_repo` | yes | Hugging Face repository to download |
 | `gpu_id` | yes | Numeric GPU assigned to the model |
-| `port` | yes | Internal vLLM port and host port used for validation |
+| `port` | yes | Internal vLLM port used by LiteLLM and dstack |
 | `max_model_len` | yes | vLLM maximum context length |
 | `active` | yes | Set to `true` to generate/deploy the model |
 | `vllm_image` | no | Per-model vLLM image override |
@@ -163,8 +170,10 @@ Only active entries are rendered. Give active models distinct GPU IDs and ports.
 
 The files in `templates/` are Jinja2 inputs, not files that must normally be edited after every deployment:
 
-- `templates/docker-compose.jinja.yaml` defines the database, vLLM services, LiteLLM service, mounts, GPU reservations, and dependencies.
+- `templates/docker-compose.jinja.yaml` defines the database, vLLM services, LiteLLM, Langfuse,
+  Nginx, mounts, GPU reservations, and dependencies.
 - `templates/litellm_config.jinja.yaml` creates one LiteLLM model entry for every active model.
+- `templates/nginx.jinja.conf` routes HTTPS API and observability traffic to internal services.
 
 The self-hosted Langfuse services use pinned container images. Mirror or preload those images in
 the air-gapped registry before running the generated Compose stack; deployment cannot pull images
@@ -227,7 +236,10 @@ dstack apply -f dstack/qwen-7b.dstack.yml
 
 Each dstack service has a vLLM `/health` probe and retries capacity, runtime, and interruption failures. The current POC does not make LiteLLM, PostgreSQL, the dstack server, or the public gateway highly available; use a stable or managed deployment for those components.
 
-The API is available at `http://<HOST>:4000/v1`. Use the model names from `models.json` as the API `model` value. The VS Code configuration example is in `vs_code_intergation/README.md`; replace `<YOUR-SERVER-IP>` and use a valid LiteLLM virtual key.
+The API is available through Nginx at `https://<API_HOSTNAME>/v1`. Use the model names from
+`models.json` as the API `model` value. The LiteLLM UI is at `https://<API_HOSTNAME>/ui`.
+Langfuse is at `https://<OBSERVABILITY_HOSTNAME>` when enabled. The VS Code configuration
+example is in `vs_code_intergation/README.md`; use a valid LiteLLM virtual key.
 
 To stop the services while retaining PostgreSQL data:
 
@@ -241,7 +253,31 @@ To remove the stack and its database volume, which permanently deletes PostgreSQ
 docker compose down -v
 ```
 
-## 9. Updating the Deployment
+## 9. Dashboard And Endpoint Inventory
+
+| Surface | URI or internal address | Port | Audience | Purpose and capability | Exposure/authentication |
+| --- | --- | ---: | --- | --- | --- |
+| Nginx API boundary | `https://<API_HOSTNAME>` | 443 | All clients | TLS entry point for LiteLLM UI, API, and health routes | Internal DNS, TLS, and LiteLLM auth |
+| LiteLLM OpenAI API | `https://<API_HOSTNAME>/v1` | 443 -> 4000 | Developers, applications | Chat/completions and model routing | LiteLLM virtual key |
+| LiteLLM dashboard | `https://<API_HOSTNAME>/ui` | 443 -> 4000 | Admins | Models, virtual keys, budgets, and proxy operations | LiteLLM UI credentials |
+| LiteLLM readiness | `https://<API_HOSTNAME>/health/readiness` | 443 -> 4000 | Admins, monitoring | Proxy readiness check | Internal access policy |
+| Langfuse dashboard | `https://<OBSERVABILITY_HOSTNAME>` | 443 -> 3000 | Admins, developers | Traces, inputs, outputs, costs, and agent workflows | Langfuse authentication and RBAC |
+| Langfuse health/API | `https://<OBSERVABILITY_HOSTNAME>/api/public/health` and `/api/*` | 443 -> 3000 | Monitoring, integrations | Health and authenticated observability API | Langfuse session/API keys |
+| vLLM model API | `http://vllm-<id>:<port>/v1` | Internal model port | LiteLLM | OpenAI-compatible inference backend | Compose network only |
+| vLLM health | `http://vllm-<id>:<port>/health` | Internal model port | Monitoring | Model health probe | Compose network or dstack probe |
+| PostgreSQL | `db:5432` | 5432 | Internal services/admins | LiteLLM and Langfuse metadata | Compose network only |
+| ClickHouse | `langfuse-clickhouse:8123` / `:9000` | 8123/9000 | Langfuse | Trace and event analytics storage | Compose network only |
+| Redis | `redis://langfuse-redis:6379` | 6379 | Langfuse | Queue and cache coordination | Compose network only |
+| MinIO S3 | `http://langfuse-minio:9000` | 9000 | Langfuse/admins | Event/object storage; console is internal `:9001` | Compose network only |
+| dstack model service | `https://<DSTACK_GATEWAY>/<service>` | dstack-assigned | Developers, applications | Scheduler-managed vLLM service and `/health` | External dstack gateway/auth |
+| dstack control plane | Organization-provided dashboard/server URI | Organization-defined | Admins | Provisioning, scheduling, logs, and operations | External dstack SSO/RBAC |
+
+The generated Compose stack publishes only Nginx ports `80` and `443`. Direct ports `4000`, `3000`,
+vLLM model ports, PostgreSQL, ClickHouse, Redis, and MinIO are intentionally private. For an
+air-gapped deployment, mirror all pinned images before isolation and provision internal DNS and CA
+certificates first.
+
+## 10. Updating the Deployment
 
 1. Stop or leave the current stack running while editing `.env` or `models.json`.
 2. Run the tests and regenerate the YAML files.
@@ -250,15 +286,15 @@ docker compose down -v
 
 If a port, GPU, or environment value is invalid, the generator exits with a detailed error and does not intentionally start Docker. Check `docker compose logs <service>` for runtime issues such as image pulls, CUDA compatibility, permissions on host paths, or Hugging Face access.
 
-## 10. Security and Operational Notes
+## 11. Security and Operational Notes
 
 - Replace every sample secret in `.env` before exposing the API.
-- Restrict access to host port `4000` with the host firewall or a reverse proxy/TLS layer.
+- Restrict access to Nginx ports `80` and `443` with the host firewall and internal TLS policy.
 - Keep `.env`, generated credentials, and model cache permissions limited to the deployment operator.
 - Pin image tags as provided; avoid changing them to `:latest` in production.
 - Ensure each model fits the assigned GPU. The validator prevents GPU sharing but cannot measure model memory requirements.
 
-## 11. License and Attribution
+## 12. License and Attribution
 
 This project is licensed under the Apache License 2.0. Commercial use is permitted,
 provided that copyright, license, and attribution notices are preserved.

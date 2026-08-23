@@ -226,6 +226,12 @@ class ConfigValidator:
                         location=constants.MODELS_FILE,
                         fix_instructions=f"Set '{field}' to a positive integer.",
                     )
+                if model[field] < 0 or (field != "gpu_id" and model[field] == 0):
+                    raise DetailedValidationError(
+                        message=f"Model '{model_id}' field '{field}' has an invalid value.",
+                        location=constants.MODELS_FILE,
+                        fix_instructions=f"Set '{field}' to a valid positive value.",
+                    )
             tensor_parallel_size = model.get("tensor_parallel_size", 1)
             if not isinstance(tensor_parallel_size, int) or isinstance(tensor_parallel_size, bool):
                 raise DetailedValidationError(
@@ -241,12 +247,6 @@ class ConfigValidator:
                     location=constants.MODELS_FILE,
                     fix_instructions="Set 'tensor_parallel_size' to a positive integer.",
                 )
-                if model[field] < 0 or (field != "gpu_id" and model[field] == 0):
-                    raise DetailedValidationError(
-                        message=f"Model '{model_id}' field '{field}' has an invalid value.",
-                        location=constants.MODELS_FILE,
-                        fix_instructions=f"Set '{field}' to a valid positive value.",
-                    )
 
 
 class DeploymentPlanner:
@@ -400,8 +400,30 @@ class ConfigGenerator:
             "langfuse_minio_secret_key": os.environ.get(
                 "LANGFUSE_S3_SECRET_ACCESS_KEY", "change-this-minio-secret"
             ),
+            "nginx_image": constants.NGINX_IMAGE,
+            "api_hostname": os.environ.get("API_HOSTNAME", "api.example.internal"),
+            "observability_hostname": os.environ.get(
+                "OBSERVABILITY_HOSTNAME", "observability.example.internal"
+            ),
+            "nginx_tls_certificate": os.environ.get("NGINX_TLS_CERTIFICATE", "./certs/server.crt"),
+            "nginx_tls_certificate_key": os.environ.get(
+                "NGINX_TLS_CERTIFICATE_KEY", "./certs/server.key"
+            ),
         }
         return cls._render_file(constants.DOCKER_COMPOSE_TEMPLATE_PATH, context)
+
+    @classmethod
+    def build_nginx_config(cls):
+        context = {
+            "api_hostname": os.environ.get("API_HOSTNAME", "api.example.internal"),
+            "observability_hostname": os.environ.get(
+                "OBSERVABILITY_HOSTNAME", "observability.example.internal"
+            ),
+            "nginx_tls_certificate": "/etc/nginx/tls/server.crt",
+            "nginx_tls_certificate_key": "/etc/nginx/tls/server.key",
+            "langfuse_enabled": os.environ.get("LANGFUSE_ENABLED", "true").lower() == "true",
+        }
+        return cls._render_file(constants.NGINX_TEMPLATE_PATH, context)
 
     @classmethod
     def build_dstack_service(cls, workload):
@@ -476,12 +498,15 @@ def main():
     if backend == "compose":
         litellm_yaml = ConfigGenerator.build_litellm_yaml(active_models)
         docker_compose_yaml = ConfigGenerator.build_docker_compose(active_models)
+        nginx_config = ConfigGenerator.build_nginx_config()
 
         with open(constants.LITELLM_CONFIG_OUTPUT, "w") as f:
             f.write(litellm_yaml)
 
         with open(constants.DOCKER_COMPOSE_OUTPUT, "w") as f:
             f.write(docker_compose_yaml)
+        with open(constants.NGINX_CONFIG_OUTPUT, "w") as f:
+            f.write(nginx_config)
     else:
         os.makedirs(constants.DSTACK_OUTPUT_DIR, exist_ok=True)
         for workload in workloads:
@@ -495,6 +520,7 @@ def main():
         "[Generator] Generated "
         + (
             f"{constants.LITELLM_CONFIG_OUTPUT} and {constants.DOCKER_COMPOSE_OUTPUT}"
+            f" and {constants.NGINX_CONFIG_OUTPUT}"
             if backend == "compose"
             else f"{constants.DSTACK_OUTPUT_DIR}/*.dstack.yml"
         )
