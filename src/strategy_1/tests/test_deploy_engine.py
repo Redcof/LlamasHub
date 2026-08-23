@@ -204,6 +204,8 @@ class TestDeployEngine(unittest.TestCase):
         self.assertIn("device_ids: ['0', '1']", compose)
         self.assertIn("/health/readiness", compose)
         self.assertIn("http://localhost:8000/health", compose)
+        self.assertIn("image: langfuse/langfuse:2.95.9", compose)
+        self.assertIn("LANGFUSE_HOST=http://langfuse:3000", compose)
 
     def test_jinja_rendering_and_env_variables(self):
         """Verify Jinja2 template rendering produces correct credentials and DB URL."""

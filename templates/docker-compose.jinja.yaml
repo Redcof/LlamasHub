@@ -38,6 +38,69 @@ services:
       retries: 5
 
 {% endfor %}
+{% if langfuse_enabled %}
+  langfuse-clickhouse:
+    image: {{ clickhouse_image }}
+    restart: always
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+
+  langfuse-redis:
+    image: {{ redis_image }}
+    restart: always
+
+  langfuse-minio:
+    image: {{ minio_image }}
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: {{ langfuse_minio_access_key }}
+      MINIO_ROOT_PASSWORD: {{ langfuse_minio_secret_key }}
+    volumes:
+      - langfuse-minio-data:/data
+
+  langfuse:
+    image: {{ langfuse_image }}
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: {{ langfuse_database_url }}
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: {{ langfuse_nextauth_secret }}
+      SALT: {{ langfuse_salt }}
+      ENCRYPTION_KEY: {{ langfuse_encryption_key }}
+      TELEMETRY_ENABLED: "false"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:clickhouse@langfuse-clickhouse:9000/default
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse
+      REDIS_CONNECTION_STRING: redis://langfuse-redis:6379
+      S3_EVENT_UPLOAD_BUCKET: langfuse
+      S3_EVENT_UPLOAD_REGION: us-east-1
+      S3_EVENT_UPLOAD_ACCESS_KEY_ID: {{ langfuse_minio_access_key }}
+      S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: {{ langfuse_minio_secret_key }}
+      S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: {{ langfuse_public_key }}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: {{ langfuse_secret_key }}
+    depends_on:
+      - db
+      - langfuse-clickhouse
+      - langfuse-redis
+      - langfuse-minio
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/public/health').then(r => { if (!r.ok) process.exit(1) })"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+{% endif %}
+
   litellm:
     image: {{ litellm_image }}
     restart: always
@@ -48,6 +111,9 @@ services:
       - LITELLM_MASTER_KEY={{ litellm_master_key }}
       - UI_USERNAME={{ ui_username }}
       - UI_PASSWORD={{ ui_password }}
+    {% if langfuse_enabled %}
+      - LANGFUSE_HOST={{ langfuse_host }}
+    {% endif %}
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
     env_file:
@@ -63,6 +129,13 @@ services:
 {% for m in active_models %}
       - vllm-{{ m.id }}
 {% endfor %}
+{% if langfuse_enabled %}
+      - langfuse
+{% endif %}
 
 volumes:
   pgdata:
+{% if langfuse_enabled %}
+  langfuse-clickhouse-data:
+  langfuse-minio-data:
+{% endif %}

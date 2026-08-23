@@ -117,7 +117,11 @@ Optional values:
     `LITELLM_BUDGET_DURATION` to control the reset period.
 - `LITELLM_FALLBACK_MODEL` names a configured LiteLLM model for fallback routing.
 - `LITELLM_CALLBACKS` defaults to `langfuse`. Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`,
-    and optionally `LANGFUSE_HOST` to record requests, inputs, and outputs in Langfuse.
+    and optionally `LANGFUSE_HOST` to record requests, inputs, and outputs in Langfuse. Compose
+    defaults this host to the self-hosted `langfuse` service on the internal network.
+- Set `LANGFUSE_ENABLED=false` to omit the self-hosted Langfuse services and disable the default
+    callback. The generated Compose stack includes Langfuse, ClickHouse, Redis, and MinIO with
+    telemetry to the public cloud disabled.
 
 Use absolute, writable host paths for `PGDATA_PATH` and `HF_HOME_PATH`. Do not commit real credentials or API keys.
 
@@ -161,6 +165,10 @@ The files in `templates/` are Jinja2 inputs, not files that must normally be edi
 
 - `templates/docker-compose.jinja.yaml` defines the database, vLLM services, LiteLLM service, mounts, GPU reservations, and dependencies.
 - `templates/litellm_config.jinja.yaml` creates one LiteLLM model entry for every active model.
+
+The self-hosted Langfuse services use pinned container images. Mirror or preload those images in
+the air-gapped registry before running the generated Compose stack; deployment cannot pull images
+from the public registry after network isolation.
 
 The generator supplies environment values and the active model list to these templates. If you customize a template, preserve the variable names used by `src/strategy_1/deploy.py`, then regenerate and inspect both output files before starting Docker.
 

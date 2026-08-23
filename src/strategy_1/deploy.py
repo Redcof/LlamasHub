@@ -336,6 +336,7 @@ class ConfigGenerator:
     @classmethod
     def build_litellm_yaml(cls, active_models):
         fallback_model = os.environ.get("LITELLM_FALLBACK_MODEL", "").strip()
+        langfuse_enabled = os.environ.get("LANGFUSE_ENABLED", "true").lower() == "true"
         context = {
             "active_models": active_models,
             "litellm_max_budget": os.environ.get("LITELLM_MAX_BUDGET", "20"),
@@ -346,7 +347,9 @@ class ConfigGenerator:
             "litellm_fallback_model": fallback_model,
             "litellm_callbacks": [
                 callback.strip()
-                for callback in os.environ.get("LITELLM_CALLBACKS", "langfuse").split(",")
+                for callback in os.environ.get(
+                    "LITELLM_CALLBACKS", "langfuse" if langfuse_enabled else ""
+                ).split(",")
                 if callback.strip()
             ],
         }
@@ -357,6 +360,7 @@ class ConfigGenerator:
         db_user = os.environ["POSTGRES_USER"]
         db_pass = os.environ["POSTGRES_PASSWORD"]
         db_name = os.environ["POSTGRES_DB"]
+        langfuse_enabled = os.environ.get("LANGFUSE_ENABLED", "true").lower() == "true"
 
         # Dynamically derive DATABASE_URL if not explicitly specified in .env
         db_url = os.environ.get(
@@ -376,6 +380,26 @@ class ConfigGenerator:
             "ui_password": os.environ["UI_PASSWORD"],
             "pgdata_path": os.environ["PGDATA_PATH"],
             "hf_home_path": os.environ["HF_HOME_PATH"],
+            "langfuse_enabled": langfuse_enabled,
+            "langfuse_image": constants.LANGFUSE_IMAGE,
+            "clickhouse_image": constants.CLICKHOUSE_IMAGE,
+            "redis_image": constants.REDIS_IMAGE,
+            "minio_image": constants.MINIO_IMAGE,
+            "langfuse_database_url": os.environ.get("LANGFUSE_DATABASE_URL", db_url),
+            "langfuse_public_key": os.environ.get("LANGFUSE_PUBLIC_KEY", "pk-lh-local"),
+            "langfuse_secret_key": os.environ.get("LANGFUSE_SECRET_KEY", "sk-lh-local"),
+            "langfuse_nextauth_secret": os.environ.get(
+                "LANGFUSE_NEXTAUTH_SECRET", "change-this-nextauth-secret"
+            ),
+            "langfuse_salt": os.environ.get("LANGFUSE_SALT", "change-this-salt"),
+            "langfuse_encryption_key": os.environ.get(
+                "LANGFUSE_ENCRYPTION_KEY", "change-this-encryption-key-32-chars"
+            ),
+            "langfuse_host": os.environ.get("LANGFUSE_HOST", "http://langfuse:3000"),
+            "langfuse_minio_access_key": os.environ.get("LANGFUSE_S3_ACCESS_KEY_ID", "langfuse"),
+            "langfuse_minio_secret_key": os.environ.get(
+                "LANGFUSE_S3_SECRET_ACCESS_KEY", "change-this-minio-secret"
+            ),
         }
         return cls._render_file(constants.DOCKER_COMPOSE_TEMPLATE_PATH, context)
 
