@@ -5,3 +5,17 @@ model_list:
       model: hosted_vllm/{{ model.hf_repo }}
       api_base: http://vllm-{{ model.id }}:{{ model.port }}/v1
 {% endfor %}
+
+general_settings:
+  max_budget: {{ litellm_max_budget }}
+  default_key_max_budget: {{ litellm_default_key_max_budget }}
+  budget_duration: {{ litellm_budget_duration }}
+litellm_settings:
+{% if litellm_fallback_model %}
+  fallbacks:
+    - {"{{ active_models[0].model_name }}": ["{{ litellm_fallback_model }}"]}
+{% endif %}
+  callbacks:
+{% for callback in litellm_callbacks %}
+    - {{ callback }}
+{% endfor %}

@@ -150,6 +150,61 @@ class TestDeployEngine(unittest.TestCase):
         self.assertNotIn("latest", tag)
         self.assertEqual(tag, "vllm/vllm-openai:v0.6.3")
 
+    def test_tensor_parallelism_is_configurable_and_bounded(self):
+        models = [
+            {
+                "id": "qwen",
+                "model_name": "qwen",
+                "hf_repo": "org/qwen",
+                "gpu_id": 0,
+                "port": 8000,
+                "max_model_len": 4096,
+                "tensor_parallel_size": 2,
+                "active": True,
+            }
+        ]
+        plan = DeploymentPlanner.build(models)
+        self.assertEqual(plan[0].tensor_parallel_size, 2)
+        with self.assertRaisesRegex(DetailedValidationError, "requests TP=2"):
+            ConfigValidator.check_tensor_parallelism(plan, 1)
+
+    def test_litellm_production_controls_render(self):
+        os.environ["LITELLM_FALLBACK_MODEL"] = "backup-model"
+        config = ConfigGenerator.build_litellm_yaml(
+            [
+                {
+                    "id": "qwen",
+                    "model_name": "qwen",
+                    "hf_repo": "org/qwen",
+                    "port": 8000,
+                }
+            ]
+        )
+        self.assertIn("default_key_max_budget: 20", config)
+        self.assertIn('"qwen": ["backup-model"]', config)
+        self.assertIn("- langfuse", config)
+
+    def test_compose_healthchecks_and_tensor_parallelism_render(self):
+        compose = ConfigGenerator.build_docker_compose(
+            [
+                {
+                    "id": "qwen",
+                    "model_name": "qwen",
+                    "hf_repo": "org/qwen",
+                    "gpu_id": 0,
+                    "port": 8000,
+                    "max_model_len": 4096,
+                    "tensor_parallel_size": 2,
+                    "image": "vllm/vllm-openai:v0.6.3",
+                }
+            ]
+        )
+        self.assertIn("--tensor-parallel-size 2", compose)
+        self.assertIn("CUDA_VISIBLE_DEVICES=0,1", compose)
+        self.assertIn("device_ids: ['0', '1']", compose)
+        self.assertIn("/health/readiness", compose)
+        self.assertIn("http://localhost:8000/health", compose)
+
     def test_jinja_rendering_and_env_variables(self):
         """Verify Jinja2 template rendering produces correct credentials and DB URL."""
         models = [

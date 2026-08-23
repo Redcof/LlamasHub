@@ -111,6 +111,13 @@ Optional values:
 
 - `DATABASE_URL` overrides the derived URL. Without it, the generator uses `postgresql://<user>:<password>@db:5432/<database>`.
 - `VLLM_IMAGE_OVERRIDE` forces one vLLM image for models that do not specify `vllm_image`.
+- `TENSOR_PARALLEL_SIZE` sets the default vLLM tensor parallel size. The engine validates each
+    model's GPU range against the detected physical GPU count and rejects overlapping ranges.
+- `LITELLM_MAX_BUDGET` and `LITELLM_DEFAULT_KEY_MAX_BUDGET` default to `$20`; set
+    `LITELLM_BUDGET_DURATION` to control the reset period.
+- `LITELLM_FALLBACK_MODEL` names a configured LiteLLM model for fallback routing.
+- `LITELLM_CALLBACKS` defaults to `langfuse`. Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`,
+    and optionally `LANGFUSE_HOST` to record requests, inputs, and outputs in Langfuse.
 
 Use absolute, writable host paths for `PGDATA_PATH` and `HF_HOME_PATH`. Do not commit real credentials or API keys.
 
@@ -128,6 +135,7 @@ Use absolute, writable host paths for `PGDATA_PATH` and `HF_HOME_PATH`. Do not c
 | `max_model_len` | yes | vLLM maximum context length |
 | `active` | yes | Set to `true` to generate/deploy the model |
 | `vllm_image` | no | Per-model vLLM image override |
+| `tensor_parallel_size` | no | Number of GPUs used by this model; defaults to `TENSOR_PARALLEL_SIZE` |
 
 Example:
 

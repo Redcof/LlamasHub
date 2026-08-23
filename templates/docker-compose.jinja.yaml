@@ -14,7 +14,7 @@ services:
     image: {{ m.image }}
     restart: always
     environment:
-      - CUDA_VISIBLE_DEVICES={{ m.gpu_id }}
+      - CUDA_VISIBLE_DEVICES={% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}{{ gpu_id }}{% if not loop.last %},{% endif %}{% endfor %}
     volumes:
       - {{ hf_home_path }}:/root/.cache/huggingface
     ipc: host
@@ -23,32 +23,22 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['{{ m.gpu_id }}']
+              device_ids: [{% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}'{{ gpu_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]
               capabilities: [gpu]
     command: >
       --model {{ m.hf_repo }}
       --port {{ m.port }}
       --gpu-memory-utilization 0.85
       --max-model-len {{ m.max_model_len }}
+      --tensor-parallel-size {{ m.tensor_parallel_size | default(1) }}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ m.port }}/health', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 {% endfor %}
   litellm:
-    image: {{ litellm_image }}
-    restart: always
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./litellm_config.yaml:/app/config.yaml
-    env_file:
-      - .env
-    command: --config /app/config.yaml --port 4000
-    depends_on:
-      - db
-{% for m in active_models %}
-      - vllm-{{ m.id }}
-{% endfor %}
-
-litellm:
     image: {{ litellm_image }}
     restart: always
     ports:
@@ -63,8 +53,16 @@ litellm:
     env_file:
       - .env
     command: --config /app/config.yaml --port 4000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/readiness', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     depends_on:
       - db
+{% for m in active_models %}
+      - vllm-{{ m.id }}
+{% endfor %}
 
 volumes:
   pgdata:

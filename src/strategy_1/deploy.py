@@ -47,6 +47,7 @@ class WorkloadSpec:
     port: int
     max_model_len: int
     replicas: int = 1
+    tensor_parallel_size: int = 1
 
 
 class SystemRunner:
@@ -125,6 +126,35 @@ class ConfigValidator:
             )
 
     @staticmethod
+    def check_tensor_parallelism(workloads, total_gpus):
+        allocated = set()
+        for workload in workloads:
+            gpu_ids = set(range(workload.gpu_id, workload.gpu_id + workload.tensor_parallel_size))
+            if total_gpus > 0 and max(gpu_ids) >= total_gpus:
+                raise DetailedValidationError(
+                    message=(
+                        f"Model '{workload.model_name}' requests "
+                        f"TP={workload.tensor_parallel_size} starting at GPU {workload.gpu_id}, "
+                        f"but the system has only {total_gpus} GPU(s)."
+                    ),
+                    location=constants.MODELS_FILE,
+                    fix_instructions=(
+                        "Set tensor_parallel_size/TENSOR_PARALLEL_SIZE to fit the physical GPUs "
+                        "on one server, or choose a valid starting gpu_id."
+                    ),
+                )
+            overlap = allocated.intersection(gpu_ids)
+            if overlap:
+                raise DetailedValidationError(
+                    message=(
+                        f"Tensor-parallel GPU allocation overlaps on GPU ID(s): {sorted(overlap)}"
+                    ),
+                    location=constants.MODELS_FILE,
+                    fix_instructions="Assign non-overlapping GPU ranges to active models.",
+                )
+            allocated.update(gpu_ids)
+
+    @staticmethod
     def check_gpu_bounds(active_models, total_gpus):
         for m in active_models:
             if m["gpu_id"] >= total_gpus:
@@ -196,6 +226,21 @@ class ConfigValidator:
                         location=constants.MODELS_FILE,
                         fix_instructions=f"Set '{field}' to a positive integer.",
                     )
+            tensor_parallel_size = model.get("tensor_parallel_size", 1)
+            if not isinstance(tensor_parallel_size, int) or isinstance(tensor_parallel_size, bool):
+                raise DetailedValidationError(
+                    message=f"Model '{model_id}' field 'tensor_parallel_size' must be an integer.",
+                    location=constants.MODELS_FILE,
+                    fix_instructions="Set 'tensor_parallel_size' to a positive integer.",
+                )
+            if tensor_parallel_size < 1:
+                raise DetailedValidationError(
+                    message=(
+                        f"Model '{model_id}' field 'tensor_parallel_size' has an invalid value."
+                    ),
+                    location=constants.MODELS_FILE,
+                    fix_instructions="Set 'tensor_parallel_size' to a positive integer.",
+                )
                 if model[field] < 0 or (field != "gpu_id" and model[field] == 0):
                     raise DetailedValidationError(
                         message=f"Model '{model_id}' field '{field}' has an invalid value.",
@@ -229,6 +274,9 @@ class DeploymentPlanner:
                 port=model["port"],
                 max_model_len=model["max_model_len"],
                 replicas=model.get("replicas", 1),
+                tensor_parallel_size=model.get(
+                    "tensor_parallel_size", int(os.environ.get("TENSOR_PARALLEL_SIZE", "1"))
+                ),
             )
             for model in active_models
         )
@@ -287,7 +335,22 @@ class ConfigGenerator:
 
     @classmethod
     def build_litellm_yaml(cls, active_models):
-        return cls._render_file(constants.LITELLM_TEMPLATE_PATH, {"active_models": active_models})
+        fallback_model = os.environ.get("LITELLM_FALLBACK_MODEL", "").strip()
+        context = {
+            "active_models": active_models,
+            "litellm_max_budget": os.environ.get("LITELLM_MAX_BUDGET", "20"),
+            "litellm_default_key_max_budget": os.environ.get(
+                "LITELLM_DEFAULT_KEY_MAX_BUDGET", "20"
+            ),
+            "litellm_budget_duration": os.environ.get("LITELLM_BUDGET_DURATION", "1mo"),
+            "litellm_fallback_model": fallback_model,
+            "litellm_callbacks": [
+                callback.strip()
+                for callback in os.environ.get("LITELLM_CALLBACKS", "langfuse").split(",")
+                if callback.strip()
+            ],
+        }
+        return cls._render_file(constants.LITELLM_TEMPLATE_PATH, context)
 
     @classmethod
     def build_docker_compose(cls, active_models):
@@ -369,6 +432,7 @@ def main():
             "gpu_id": workload.gpu_id,
             "port": workload.port,
             "max_model_len": workload.max_model_len,
+            "tensor_parallel_size": workload.tensor_parallel_size,
         }
         for workload in workloads
     ]
@@ -379,6 +443,7 @@ def main():
     if backend == "compose":
         ConfigValidator.check_duplicate_ports(active_models)
         ConfigValidator.check_gpu_overload(active_models)
+        ConfigValidator.check_tensor_parallelism(workloads, total_gpus)
         if total_gpus > 0:
             ConfigValidator.check_gpu_bounds(active_models, total_gpus)
 

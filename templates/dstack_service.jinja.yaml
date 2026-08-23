@@ -9,12 +9,13 @@ commands:
     --port {{ workload.port }}
     --gpu-memory-utilization 0.85
     --max-model-len {{ workload.max_model_len }}
+    --tensor-parallel-size {{ workload.tensor_parallel_size }}
 
 port: {{ workload.port }}
 model: {{ workload.model_name }}
 
 resources:
-  gpu: 1
+  gpu: {{ workload.tensor_parallel_size }}
 
 volumes:
   - instance_path: /root/.cache/huggingface
