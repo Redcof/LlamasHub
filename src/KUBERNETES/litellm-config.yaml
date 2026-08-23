@@ -1,0 +1,26 @@
+model_list:
+  - model_name: "${MODEL_1_NAME}"
+    litellm_params:
+      model: "openai/${MODEL_1_NAME}"
+      api_base: "http://vllm-model-1-svc:8000/v1"
+      api_key: "none"
+
+router_settings:
+  routing_strategy: "usage-based-routing-v2"
+  redis_host: "redis-service"
+  redis_port: 6379
+  redis_password: "${REDIS_PASSWORD}"
+
+general_settings:
+  master_key: "${LITELLM_MASTER_KEY}"
+  database_url: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres-service:5432/litellm"
+  
+  # RULE 2: Default Key Budgets ($20/month per developer)
+  max_user_budget: ${DEFAULT_USER_BUDGET}
+  user_budget_duration: "${DEFAULT_BUDGET_DURATION}"
+
+litellm_settings:
+  # RULE 4: Attach OpenTelemetry & Langfuse Callbacks
+  callbacks: ["otel", "langfuse"]
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
