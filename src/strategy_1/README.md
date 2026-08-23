@@ -1,7 +1,7 @@
 
 # vLLM Multi-Model Deployment Orchestrator
 
-This project generates and launches a Docker Compose stack for multiple vLLM inference servers behind a LiteLLM proxy, with PostgreSQL available for LiteLLM data. Model, GPU, port, credential, and image settings are kept in configuration files rather than hard-coded in the deployment command.
+This project generates deployment artifacts for multiple vLLM inference servers behind a LiteLLM proxy. Docker Compose remains the local fallback, and dstack can provision model services with scheduler-managed retries and health probes. Model, GPU, port, credential, and image settings are kept in configuration files rather than hard-coded in the deployment command.
 
 The Python tooling is installed into a local virtual environment managed by [`uv`](https://docs.astral.sh/uv/). Docker runs the actual inference, proxy, and database services.
 
@@ -58,6 +58,7 @@ Generated in the project root by the deployment engine:
 ```text
 docker-compose.yml       # Generated Compose stack
 litellm_config.yaml      # Generated LiteLLM model list
+dstack/<model>.dstack.yml # Generated dstack model services when selected
 ```
 
 These generated files are deployment artifacts. Re-run the generator after changing `.env`, `models.json`, or a template.
@@ -193,13 +194,22 @@ Generate the deployment files:
 uv run python -m src.strategy_1.deploy
 ```
 
-The command validates the environment and model configuration, resolves the vLLM image, and writes `docker-compose.yml` and `litellm_config.yaml`. Review the generated files, then start the stack:
+The command validates the environment and model configuration, resolves the vLLM image, and writes Compose artifacts by default. Review the generated files, then start the stack:
 
 ```bash
 docker compose up -d --remove-orphans
 docker compose ps
 docker compose logs -f litellm
 ```
+
+To generate dstack services instead, set `DEPLOYMENT_BACKEND=dstack` in `.env` or the shell environment:
+
+```bash
+DEPLOYMENT_BACKEND=dstack uv run python -m src.strategy_1.deploy
+dstack apply -f dstack/qwen-7b.dstack.yml
+```
+
+Each dstack service has a vLLM `/health` probe and retries capacity, runtime, and interruption failures. The current POC does not make LiteLLM, PostgreSQL, the dstack server, or the public gateway highly available; use a stable or managed deployment for those components.
 
 The API is available at `http://<HOST>:4000/v1`. Use the model names from `models.json` as the API `model` value. The VS Code configuration example is in `vs_code_intergation/README.md`; replace `<YOUR-SERVER-IP>` and use a valid LiteLLM virtual key.
 

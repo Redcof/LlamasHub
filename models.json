@@ -1,14 +1,5 @@
 [
     {
-        "id": "qwen-7b",
-        "model_name": "qwen2.5-coder-7b",
-        "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
-        "gpu_id": 0,
-        "port": 8000,
-        "max_model_len": 4096,
-        "active": true
-    },
-    {
         "id": "codellama-7b",
         "model_name": "codellama-7b",
         "hf_repo": "codellama/CodeLlama-7b-Instruct-hf",

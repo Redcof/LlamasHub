@@ -20,28 +20,9 @@ echo "=========================================================="
 echo " vLLM Deployment Orchestrator"
 echo "=========================================================="
 
-# Ensure Python 3 exists
-if ! command -v python3 &> /dev/null; then
-    echo "Python 3 is required but not installed."
-    if confirm_action "Do you want to run 'apt-get update && apt-get install python3 Jinja2'?"; then
-        sudo apt-get update && sudo apt-get install -y python3 python3-jinja2
-    else
-        exit 1
-    fi
-fi
 
-# Ensure Jinja2 module is available
-if ! python3 -c "import jinja2" &> /dev/null; then
-    echo "Python package 'jinja2' is missing."
-    if confirm_action "Do you want to install python3-jinja2 via apt/pip?"; then
-        sudo apt-get install -y python3-jinja2 || pip3 install jinja2
-    else
-        exit 1
-    fi
-fi
-
-# Optionally install Docker if missing
-if ! command -v docker &> /dev/null; then
+# Optionally install Docker if Compose is selected
+if [[ "${DEPLOYMENT_BACKEND:-compose}" != "dstack" ]] && ! command -v docker &> /dev/null; then
     echo "Docker is not detected on this system."
     if confirm_action "Do you want to download and install Docker automatically?"; then
         curl -fsSL https://get.docker.com -o get-docker.sh
@@ -55,19 +36,37 @@ fi
 
 # Run separate unit tests file
 echo "=== Running Python Logic Unit Tests ==="
-python3 test_deploy.py
+python3 -m unittest src/strategy_1/tests/test_deploy_engine.py
 
 # Execute Python engine
 echo "=== Executing Deployment Engine ==="
-python3 deploy.py
+python3 -m src.strategy_1.deploy
 
-# Docker Compose execution
+# Backend execution
 echo ""
-if confirm_action "Configuration files generated. Launch Docker Compose stack now?"; then
-    docker compose up -d --remove-orphans
+if [[ "${DEPLOYMENT_BACKEND:-compose}" == "dstack" ]]; then
+    if ! command -v dstack &> /dev/null; then
+        echo "DEPLOYMENT_BACKEND=dstack requires the dstack CLI."
+        exit 1
+    fi
+    if confirm_action "Configuration files generated. Apply dstack services now?"; then
+        for service_file in dstack/*.dstack.yml; do
+            [[ -e "$service_file" ]] || continue
+            dstack apply -f "$service_file"
+        done
+    else
+        echo "dstack deployment skipped. Output files generated."
+    fi
+else
+    if confirm_action "Configuration files generated. Launch Docker Compose stack now?"; then
+        docker compose up -d --remove-orphans
+    else
+        echo "Docker deployment skipped. Output files generated."
+    fi
+fi
+
+if [[ "${DEPLOYMENT_BACKEND:-compose}" != "dstack" ]]; then
     echo "=========================================================="
     echo " Server stack updated and running!"
     echo "=========================================================="
-else
-    echo "Docker deployment skipped. Output files generated."
 fi

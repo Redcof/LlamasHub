@@ -7,6 +7,7 @@ import os
 import socket
 import subprocess
 import sys
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
@@ -32,6 +33,20 @@ class DetailedValidationError(Exception):
             f"  -> File/Location: {self.location}\n"
             f"  -> How to Fix   : {self.fix_instructions}\n"
         )
+
+
+@dataclass(frozen=True)
+class WorkloadSpec:
+    """Normalized model workload shared by deployment backends."""
+
+    model_id: str
+    model_name: str
+    hf_repo: str
+    image: str
+    gpu_id: int
+    port: int
+    max_model_len: int
+    replicas: int = 1
 
 
 class SystemRunner:
@@ -144,6 +159,80 @@ class ConfigValidator:
                         ),
                     )
 
+    @staticmethod
+    def validate_models(active_models):
+        required = ("id", "model_name", "hf_repo", "gpu_id", "port", "max_model_len")
+        seen_ids = set()
+        for model in active_models:
+            missing = [field for field in required if field not in model]
+            if missing:
+                raise DetailedValidationError(
+                    message=(
+                        f"Model configuration is missing required field(s): {', '.join(missing)}"
+                    ),
+                    location=constants.MODELS_FILE,
+                    fix_instructions="Add the missing fields to the model entry.",
+                )
+
+            model_id = model["id"]
+            if not isinstance(model_id, str) or not model_id.strip():
+                raise DetailedValidationError(
+                    message="Model 'id' must be a non-empty string.",
+                    location=constants.MODELS_FILE,
+                    fix_instructions="Set a unique, non-empty string for each model 'id'.",
+                )
+            if model_id in seen_ids:
+                raise DetailedValidationError(
+                    message=f"Duplicate model ID detected: '{model_id}'.",
+                    location=constants.MODELS_FILE,
+                    fix_instructions="Give every active model a unique 'id'.",
+                )
+            seen_ids.add(model_id)
+
+            for field in ("gpu_id", "port", "max_model_len"):
+                if not isinstance(model[field], int) or isinstance(model[field], bool):
+                    raise DetailedValidationError(
+                        message=f"Model '{model_id}' field '{field}' must be an integer.",
+                        location=constants.MODELS_FILE,
+                        fix_instructions=f"Set '{field}' to a positive integer.",
+                    )
+                if model[field] < 0 or (field != "gpu_id" and model[field] == 0):
+                    raise DetailedValidationError(
+                        message=f"Model '{model_id}' field '{field}' has an invalid value.",
+                        location=constants.MODELS_FILE,
+                        fix_instructions=f"Set '{field}' to a valid positive value.",
+                    )
+
+
+class DeploymentPlanner:
+    """Build a backend-neutral deployment plan from model configuration."""
+
+    @classmethod
+    def build(cls, models, cuda_version="12.0", image_override=None):
+        active_models = [model for model in models if model.get("active", False)]
+        if not active_models:
+            raise DetailedValidationError(
+                message="No active models designated for deployment.",
+                location=constants.MODELS_FILE,
+                fix_instructions="Set 'active': true for at least one model block in models.json.",
+            )
+
+        ConfigValidator.validate_models(active_models)
+        image = SystemInspector.resolve_vllm_tag(cuda_version, image_override)
+        return tuple(
+            WorkloadSpec(
+                model_id=model["id"],
+                model_name=model["model_name"],
+                hf_repo=model["hf_repo"],
+                image=model.get("vllm_image") or image,
+                gpu_id=model["gpu_id"],
+                port=model["port"],
+                max_model_len=model["max_model_len"],
+                replicas=model.get("replicas", 1),
+            )
+            for model in active_models
+        )
+
 
 class SystemInspector:
     """System introspection."""
@@ -227,6 +316,10 @@ class ConfigGenerator:
         }
         return cls._render_file(constants.DOCKER_COMPOSE_TEMPLATE_PATH, context)
 
+    @classmethod
+    def build_dstack_service(cls, workload):
+        return cls._render_file(constants.DSTACK_TEMPLATE_PATH, {"workload": workload})
+
 
 def main():
     print("=== Deployment Orchestrator Running via uv ===")
@@ -257,36 +350,66 @@ def main():
 
     total_gpus = SystemInspector.get_gpu_count()
     cuda_version = SystemInspector.get_cuda_version()
+    backend = os.environ.get("DEPLOYMENT_BACKEND", "compose").lower()
+    if backend not in {"compose", "dstack"}:
+        raise DetailedValidationError(
+            message=f"Unsupported deployment backend: '{backend}'.",
+            location=constants.ENV_FILE,
+            fix_instructions="Set DEPLOYMENT_BACKEND to 'compose' or 'dstack'.",
+        )
 
     image_override = os.environ.get("VLLM_IMAGE_OVERRIDE")
-    default_resolved_tag = SystemInspector.resolve_vllm_tag(cuda_version, image_override)
-
-    for m in active_models:
-        m["image"] = m.get("vllm_image") or default_resolved_tag
+    workloads = DeploymentPlanner.build(all_models, cuda_version, image_override)
+    active_models = [
+        {
+            "id": workload.model_id,
+            "model_name": workload.model_name,
+            "hf_repo": workload.hf_repo,
+            "image": workload.image,
+            "gpu_id": workload.gpu_id,
+            "port": workload.port,
+            "max_model_len": workload.max_model_len,
+        }
+        for workload in workloads
+    ]
 
     print(f"[System] Physical GPUs detected: {total_gpus}")
     print(f"[System] CUDA version capability: {cuda_version}")
 
-    ConfigValidator.check_duplicate_ports(active_models)
-    ConfigValidator.check_gpu_overload(active_models)
-    if total_gpus > 0:
-        ConfigValidator.check_gpu_bounds(active_models, total_gpus)
-    ConfigValidator.check_port_availability(active_models)
+    if backend == "compose":
+        ConfigValidator.check_duplicate_ports(active_models)
+        ConfigValidator.check_gpu_overload(active_models)
+        if total_gpus > 0:
+            ConfigValidator.check_gpu_bounds(active_models, total_gpus)
 
     print("[Validation] Configuration and network checks passed.")
 
-    litellm_yaml = ConfigGenerator.build_litellm_yaml(active_models)
-    docker_compose_yaml = ConfigGenerator.build_docker_compose(active_models)
+    if backend == "compose":
+        litellm_yaml = ConfigGenerator.build_litellm_yaml(active_models)
+        docker_compose_yaml = ConfigGenerator.build_docker_compose(active_models)
 
-    with open(constants.LITELLM_CONFIG_OUTPUT, "w") as f:
-        f.write(litellm_yaml)
+        with open(constants.LITELLM_CONFIG_OUTPUT, "w") as f:
+            f.write(litellm_yaml)
 
-    with open(constants.DOCKER_COMPOSE_OUTPUT, "w") as f:
-        f.write(docker_compose_yaml)
+        with open(constants.DOCKER_COMPOSE_OUTPUT, "w") as f:
+            f.write(docker_compose_yaml)
+    else:
+        os.makedirs(constants.DSTACK_OUTPUT_DIR, exist_ok=True)
+        for workload in workloads:
+            output_path = os.path.join(
+                constants.DSTACK_OUTPUT_DIR, f"{workload.model_id}.dstack.yml"
+            )
+            with open(output_path, "w") as f:
+                f.write(ConfigGenerator.build_dstack_service(workload))
 
     print(
-        f"[Generator] Generated {constants.LITELLM_CONFIG_OUTPUT} and "
-        f"{constants.DOCKER_COMPOSE_OUTPUT} successfully."
+        "[Generator] Generated "
+        + (
+            f"{constants.LITELLM_CONFIG_OUTPUT} and {constants.DOCKER_COMPOSE_OUTPUT}"
+            if backend == "compose"
+            else f"{constants.DSTACK_OUTPUT_DIR}/*.dstack.yml"
+        )
+        + " successfully."
     )
 
 

@@ -1,0 +1,31 @@
+type: service
+name: {{ workload.model_id }}
+image: {{ workload.image }}
+
+commands:
+  - >-
+    vllm serve {{ workload.hf_repo }}
+    --host 0.0.0.0
+    --port {{ workload.port }}
+    --gpu-memory-utilization 0.85
+    --max-model-len {{ workload.max_model_len }}
+
+port: {{ workload.port }}
+model: {{ workload.model_name }}
+
+resources:
+  gpu: 1
+
+volumes:
+  - instance_path: /root/.cache/huggingface
+    path: /root/.cache/huggingface
+    optional: true
+
+probes:
+  - type: http
+    url: /health
+    interval: 15s
+
+retry:
+  on_events: [no-capacity, error, interruption]
+  duration: 1h

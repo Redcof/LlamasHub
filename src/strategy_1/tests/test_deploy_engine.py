@@ -16,9 +16,11 @@ import unittest
 from src.strategy_1.deploy import (
     ConfigGenerator,
     ConfigValidator,
+    DeploymentPlanner,
     DetailedValidationError,
     EnvValidator,
     SystemInspector,
+    WorkloadSpec,
 )
 
 
@@ -65,6 +67,82 @@ class TestDeployEngine(unittest.TestCase):
         ]
         with self.assertRaises(DetailedValidationError):
             ConfigValidator.check_gpu_overload(bad_models)
+
+    def test_duplicate_active_ids_raise_error(self):
+        models = [
+            {
+                "id": "same",
+                "model_name": "one",
+                "hf_repo": "org/one",
+                "gpu_id": 0,
+                "port": 8000,
+                "max_model_len": 4096,
+                "active": True,
+            },
+            {
+                "id": "same",
+                "model_name": "two",
+                "hf_repo": "org/two",
+                "gpu_id": 1,
+                "port": 8001,
+                "max_model_len": 4096,
+                "active": True,
+            },
+        ]
+        with self.assertRaisesRegex(DetailedValidationError, "Duplicate model ID"):
+            DeploymentPlanner.build(models)
+
+    def test_planner_returns_normalized_workload(self):
+        models = [
+            {
+                "id": "qwen",
+                "model_name": "qwen-coder",
+                "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
+                "gpu_id": 0,
+                "port": 8000,
+                "max_model_len": 4096,
+                "active": True,
+                "replicas": 2,
+            }
+        ]
+
+        plan = DeploymentPlanner.build(models, cuda_version="12.5")
+
+        self.assertEqual(
+            plan,
+            (
+                WorkloadSpec(
+                    model_id="qwen",
+                    model_name="qwen-coder",
+                    hf_repo="Qwen/Qwen2.5-Coder-7B-Instruct",
+                    image="vllm/vllm-openai:v0.6.3",
+                    gpu_id=0,
+                    port=8000,
+                    max_model_len=4096,
+                    replicas=2,
+                ),
+            ),
+        )
+
+    def test_dstack_service_rendering(self):
+        workload = WorkloadSpec(
+            model_id="qwen",
+            model_name="qwen-coder",
+            hf_repo="Qwen/Qwen2.5-Coder-7B-Instruct",
+            image="vllm/vllm-openai:v0.6.3",
+            gpu_id=0,
+            port=8000,
+            max_model_len=4096,
+        )
+
+        service = ConfigGenerator.build_dstack_service(workload)
+
+        self.assertIn("type: service", service)
+        self.assertIn("name: qwen", service)
+        self.assertIn("gpu: 1", service)
+        self.assertIn("vllm serve", service)
+        self.assertIn("/health", service)
+        self.assertIn("retry:", service)
 
     def test_no_latest_tag_in_resolution(self):
         """Verify resolution uses fixed versions and never :latest."""

@@ -8,6 +8,8 @@ ENV_FILE = ".env"
 MODELS_FILE = "models.json"
 DOCKER_COMPOSE_OUTPUT = "docker-compose.yml"
 LITELLM_CONFIG_OUTPUT = "litellm_config.yaml"
+DSTACK_TEMPLATE_PATH = "templates/dstack_service.jinja.yaml"
+DSTACK_OUTPUT_DIR = "dstack"
 
 # Templates
 LITELLM_TEMPLATE_PATH = "templates/litellm_config.jinja.yaml"
