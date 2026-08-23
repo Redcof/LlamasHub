@@ -1,5 +1,5 @@
 ---
-# PostgreSQL Persistence Deployment
+# 1. PostgreSQL Persistence Deployment
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -30,7 +30,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  # Internal service exposing PostgreSQL to LiteLLM.
   name: postgres-service
 spec:
   ports:
@@ -38,7 +37,7 @@ spec:
   selector:
     app: postgres
 ---
-# Redis HA In-Memory Cache
+# 2. Redis HA In-Memory Cache
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -63,7 +62,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  # Internal service exposing Redis to LiteLLM.
   name: redis-service
 spec:
   ports:
@@ -71,7 +69,7 @@ spec:
   selector:
     app: redis
 ---
-# vLLM Engine Deployment
+# 3. vLLM Model 1 Deployment (Dynamic GPU Binding)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,39 +87,19 @@ spec:
       containers:
       - name: vllm-container
         image: vllm/vllm-openai:v0.6.0
-        args:
-        - "--model"
-        - "${MODEL_1_REPO}"
-        - "--port"
-        - "8000"
-        - "--tensor-parallel-size"
-        - "${TENSOR_PARALLEL_SIZE}"
-        - "--trust-remote-code"
+        args: ["--model", "${MODEL_1_REPO}", "--port", "8000", "--trust-remote-code"]
         env:
         - name: HUGGING_FACE_HUB_TOKEN
           value: "${HUGGINGFACE_TOKEN}"
         resources:
           limits:
-            nvidia.com/gpu: "${TENSOR_PARALLEL_SIZE}"
+            nvidia.com/gpu: 1
         ports:
         - containerPort: 8000
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 60
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 90
-          periodSeconds: 15
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  # Internal service routing requests to the vLLM model replicas.
   name: vllm-model-1-svc
 spec:
   ports:
@@ -129,7 +107,7 @@ spec:
   selector:
     app: vllm-model-1
 ---
-# LiteLLM Proxy HA Deployment
+# 4. LiteLLM Proxy HA Gateway & Usage Tracking
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -159,32 +137,12 @@ spec:
           value: "${REDIS_PASSWORD}"
         - name: LITELLM_MASTER_KEY
           value: "${LITELLM_MASTER_KEY}"
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "${OTEL_EXPORTER_OTLP_ENDPOINT}"
-        - name: LANGFUSE_PUBLIC_KEY
-          value: "${LANGFUSE_PUBLIC_KEY}"
-        - name: LANGFUSE_SECRET_KEY
-          value: "${LANGFUSE_SECRET_KEY}"
-        - name: LANGFUSE_HOST
-          value: "${LANGFUSE_HOST}"
         volumeMounts:
         - name: config-volume
           mountPath: /app/config.yaml
           subPath: config.yaml
         ports:
         - containerPort: 4000
-        readinessProbe:
-          httpGet:
-            path: /health/readiness
-            port: 4000
-          initialDelaySeconds: 15
-          periodSeconds: 5
-        livenessProbe:
-          httpGet:
-            path: /health/liveness
-            port: 4000
-          initialDelaySeconds: 20
-          periodSeconds: 10
       volumes:
       - name: config-volume
         configMap:
@@ -193,7 +151,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  # External load-balanced service exposing the LiteLLM proxy.
   name: litellm-service
 spec:
   type: LoadBalancer
