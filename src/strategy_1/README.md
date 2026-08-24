@@ -95,7 +95,7 @@ The vLLM containers download each configured Hugging Face repository on first us
 Create the local environment file from the template:
 
 ```bash
-cp .env.template .env
+cp .envrc.template .envrc
 ```
 
 Set every required value. Empty values fail validation before any files are generated.
