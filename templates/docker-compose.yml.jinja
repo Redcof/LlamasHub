@@ -10,7 +10,7 @@ services:
       - pgdata:{{ pgdata_path }}
 
 {% for m in active_models %}
-  vllm-{{ m.id }}:
+  {{ inference_engine }}-{{ m.id }}:
     image: {{ m.image }}
     restart: always
     environment:
@@ -27,11 +27,18 @@ services:
               device_ids: [{% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}'{{ gpu_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]
               capabilities: [gpu]
     command: >
+    {% if inference_engine == "tgi" %}
+      --model-id {{ m.hf_repo }}
+      --port {{ m.port }}
+      --max-total-tokens {{ m.max_model_len }}
+      --num-shard {{ m.tensor_parallel_size | default(1) }}
+    {% else %}
       --model {{ m.hf_repo }}
       --port {{ m.port }}
       --gpu-memory-utilization 0.85
       --max-model-len {{ m.max_model_len }}
       --tensor-parallel-size {{ m.tensor_parallel_size | default(1) }}
+    {% endif %}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ m.port }}/health', timeout=2)"]
       interval: 15s
@@ -147,7 +154,7 @@ services:
     depends_on:
       - db
 {% for m in active_models %}
-      - vllm-{{ m.id }}
+      - {{ inference_engine }}-{{ m.id }}
 {% endfor %}
 {% if langfuse_enabled %}
       - langfuse

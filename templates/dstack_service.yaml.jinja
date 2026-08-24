@@ -7,12 +7,20 @@ env:
 
 commands:
   - >-
+{% if workload.engine == "tgi" %}
+    text-generation-launcher
+    --model-id {{ workload.hf_repo }}
+    --port {{ workload.port }}
+    --max-total-tokens {{ workload.max_model_len }}
+    --num-shard {{ workload.tensor_parallel_size }}
+{% else %}
     vllm serve {{ workload.hf_repo }}
     --host 0.0.0.0
     --port {{ workload.port }}
     --gpu-memory-utilization 0.85
     --max-model-len {{ workload.max_model_len }}
     --tensor-parallel-size {{ workload.tensor_parallel_size }}
+  {% endif %}
 
 port: {{ workload.port }}
 model: {{ workload.model_name }}
