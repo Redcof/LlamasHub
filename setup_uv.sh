@@ -37,6 +37,9 @@ if confirm_action "Do you want to run 'uv sync' to create/update .venv and insta
     
     # Creates .venv, generates/updates uv.lock, and installs dependencies
     uv sync
+    uv sync --dev
+    source .venv/bin/activate
+    pre-commit install
 
     echo ""
     echo "=========================================================="
