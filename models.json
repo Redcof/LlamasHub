@@ -24,7 +24,7 @@
         "gpu_id": 0,
         "port": 8000,
         "max_model_len": 4096,
-        "vllm_image": "vllm/vllm-openai:v0.5.4-cu118",
+        "vllm_image": "vllm/vllm-openai:v0.11.0",
         "active": false
     },
     {

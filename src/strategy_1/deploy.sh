@@ -45,11 +45,7 @@ if [[ "${DEPLOYMENT_BACKEND:-compose}" == "dstack" ]]; then
         echo "dstack deployment skipped. Output files generated."
     fi
 else
-    if confirm_action "Configuration files generated. Launch Docker Compose stack now?"; then
-        sudo docker compose up -d --remove-orphans
-    else
-        echo "Docker deployment skipped. Output files generated."
-    fi
+    sudo docker compose up -d --remove-orphans    
 fi
 
 if [[ "${DEPLOYMENT_BACKEND:-compose}" != "dstack" ]]; then

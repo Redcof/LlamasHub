@@ -115,7 +115,7 @@ class TestDeployEngine(unittest.TestCase):
                     model_id="qwen",
                     model_name="qwen-coder",
                     hf_repo="Qwen/Qwen2.5-Coder-7B-Instruct",
-                    image="vllm/vllm-openai:v0.6.3",
+                    image="vllm/vllm-openai:v0.11.0",
                     gpu_id=0,
                     port=8000,
                     max_model_len=4096,
@@ -129,7 +129,7 @@ class TestDeployEngine(unittest.TestCase):
             model_id="qwen",
             model_name="qwen-coder",
             hf_repo="Qwen/Qwen2.5-Coder-7B-Instruct",
-            image="vllm/vllm-openai:v0.6.3",
+            image="vllm/vllm-openai:v0.11.0",
             gpu_id=0,
             port=8000,
             max_model_len=4096,
@@ -148,7 +148,7 @@ class TestDeployEngine(unittest.TestCase):
         """Verify resolution uses fixed versions and never :latest."""
         tag = SystemInspector.resolve_vllm_tag("12.5")
         self.assertNotIn("latest", tag)
-        self.assertEqual(tag, "vllm/vllm-openai:v0.6.3")
+        self.assertEqual(tag, "vllm/vllm-openai:v0.11.0")
 
     def test_tensor_parallelism_is_configurable_and_bounded(self):
         models = [
@@ -195,7 +195,7 @@ class TestDeployEngine(unittest.TestCase):
                     "port": 8000,
                     "max_model_len": 4096,
                     "tensor_parallel_size": 2,
-                    "image": "vllm/vllm-openai:v0.6.3",
+                    "image": "vllm/vllm-openai:v0.11.0",
                 }
             ]
         )
@@ -224,7 +224,7 @@ class TestDeployEngine(unittest.TestCase):
                     "gpu_id": 0,
                     "port": 8000,
                     "max_model_len": 4096,
-                    "image": "vllm/vllm-openai:v0.6.3",
+                    "image": "vllm/vllm-openai:v0.11.0",
                 }
             ]
         )
@@ -288,7 +288,7 @@ class TestDeployEngine(unittest.TestCase):
                 "gpu_id": 0,
                 "port": 8000,
                 "max_model_len": 4096,
-                "image": "vllm/vllm-openai:v0.6.3",
+                "image": "vllm/vllm-openai:v0.11.0",
             }
         ]
 
@@ -323,7 +323,7 @@ class TestDeployEngine(unittest.TestCase):
                 "gpu_id": 0,
                 "port": 8000,
                 "max_model_len": 4096,
-                "image": "vllm/vllm-openai:v0.6.3",
+                "image": "vllm/vllm-openai:v0.11.0",
             }
         ]
 

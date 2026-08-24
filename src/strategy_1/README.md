@@ -75,7 +75,7 @@ These generated files are deployment artifacts. Re-run the generator after chang
 
 Docker pulls the fixed image tags selected by the generator:
 
-- vLLM: normally `vllm/vllm-openai:v0.6.3`, selected from the detected CUDA version
+- vLLM: normally `vllm/vllm-openai:v0.11.0`, selected from the detected CUDA version
 - LiteLLM: `ghcr.io/berriai/litellm:v1.52.0`
 - PostgreSQL: `postgres:15.5-alpine`
 - Langfuse: `langfuse/langfuse:2.95.9`, with ClickHouse, Redis, and MinIO dependencies

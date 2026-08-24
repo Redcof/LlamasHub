@@ -314,11 +314,11 @@ class SystemInspector:
 
         ver = float(match.group(1))
         if ver >= 12.4:
-            return "vllm/vllm-openai:v0.6.3"
+            return "vllm/vllm-openai:v0.11.0"
         elif ver >= 12.1:
-            return "vllm/vllm-openai:v0.6.1"
+            return "vllm/vllm-openai:v0.11.0"
         elif ver >= 11.8:
-            return "vllm/vllm-openai:v0.5.4-cu118"
+            return constants.DEFAULT_VLLM_IMAGE
         else:
             return constants.FALLBACK_VLLM_IMAGE
 
