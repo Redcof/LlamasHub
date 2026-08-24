@@ -2,6 +2,9 @@ type: service
 name: {{ workload.model_id }}
 image: {{ workload.image }}
 
+env:
+  - HF_TOKEN
+
 commands:
   - >-
     vllm serve {{ workload.hf_repo }}

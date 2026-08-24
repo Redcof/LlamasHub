@@ -141,6 +141,7 @@ class TestDeployEngine(unittest.TestCase):
         self.assertIn("name: qwen", service)
         self.assertIn("gpu: 1", service)
         self.assertIn("vllm serve", service)
+        self.assertIn("  - HF_TOKEN\n", service)
         self.assertIn("/health", service)
         self.assertIn("retry:", service)
 
@@ -201,6 +202,7 @@ class TestDeployEngine(unittest.TestCase):
         )
         self.assertIn("--tensor-parallel-size 2", compose)
         self.assertIn("CUDA_VISIBLE_DEVICES=0,1", compose)
+        self.assertIn("      - HF_TOKEN\n", compose)
         self.assertIn("device_ids: ['0', '1']", compose)
         self.assertIn("/health/readiness", compose)
         self.assertIn("http://localhost:8000/health", compose)

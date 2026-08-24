@@ -15,6 +15,7 @@ services:
     restart: always
     environment:
       - CUDA_VISIBLE_DEVICES={% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}{{ gpu_id }}{% if not loop.last %},{% endif %}{% endfor %}
+      - HF_TOKEN
     volumes:
       - {{ hf_home_path }}:/root/.cache/huggingface
     ipc: host
