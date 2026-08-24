@@ -151,6 +151,46 @@ class TestDeployEngine(unittest.TestCase):
         self.assertNotIn("latest", tag)
         self.assertEqual(tag, "vllm/vllm-openai:v0.11.0")
 
+    def test_tgi_rendering(self):
+        os.environ["INFERENCE_ENGINE"] = "tgi"
+        try:
+            plan = DeploymentPlanner.build(
+                [
+                    {
+                        "id": "qwen",
+                        "model_name": "qwen",
+                        "hf_repo": "org/qwen",
+                        "gpu_id": 0,
+                        "port": 8000,
+                        "max_model_len": 4096,
+                        "active": True,
+                    }
+                ]
+            )
+            self.assertEqual(plan[0].image, "ghcr.io/huggingface/text-generation-inference:3.3.5")
+            compose = ConfigGenerator.build_docker_compose(
+                [
+                    {
+                        "id": "qwen",
+                        "model_name": "qwen",
+                        "hf_repo": "org/qwen",
+                        "gpu_id": 0,
+                        "port": 8000,
+                        "max_model_len": 4096,
+                        "image": plan[0].image,
+                    }
+                ]
+            )
+            self.assertIn("tgi-qwen:", compose)
+            self.assertIn("--model-id org/qwen", compose)
+            self.assertIn("--max-total-tokens 4096", compose)
+            self.assertNotIn("vllm serve", compose)
+            self.assertIn("api_base: http://tgi-qwen:8000/v1", ConfigGenerator.build_litellm_yaml([
+                {"model_name": "qwen", "hf_repo": "org/qwen", "id": "qwen", "port": 8000}
+            ]))
+        finally:
+            del os.environ["INFERENCE_ENGINE"]
+
     def test_tensor_parallelism_is_configurable_and_bounded(self):
         models = [
             {

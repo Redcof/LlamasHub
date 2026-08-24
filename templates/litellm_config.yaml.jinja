@@ -3,7 +3,7 @@ model_list:
   - model_name: {{ model.model_name }}
     litellm_params:
       model: hosted_vllm/{{ model.hf_repo }}
-      api_base: http://vllm-{{ model.id }}:{{ model.port }}/v1
+      api_base: http://{{ inference_engine }}-{{ model.id }}:{{ model.port }}/v1
 {% endfor %}
 
 general_settings:

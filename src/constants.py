@@ -23,6 +23,7 @@ CUDA_VERSION_REGEX = re.compile(r"^(\d+\.\d+)")
 # Fixed Docker Image Tags (Req #5: No :latest images allowed)
 DEFAULT_VLLM_IMAGE = "vllm/vllm-openai:v0.11.0"
 FALLBACK_VLLM_IMAGE = "vllm/vllm-openai:v0.11.0"
+DEFAULT_TGI_IMAGE = "ghcr.io/huggingface/text-generation-inference:3.3.5"
 LITELLM_IMAGE = "ghcr.io/berriai/litellm:v1.98.0"
 POSTGRES_IMAGE = "postgres:15.5-alpine"
 LANGFUSE_IMAGE = "langfuse/langfuse:2.95.9"

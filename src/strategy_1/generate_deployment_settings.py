@@ -48,6 +48,7 @@ class WorkloadSpec:
     max_model_len: int
     replicas: int = 1
     tensor_parallel_size: int = 1
+    engine: str = "vllm"
 
 
 class SystemRunner:
@@ -263,7 +264,14 @@ class DeploymentPlanner:
             )
 
         ConfigValidator.validate_models(active_models)
-        image = SystemInspector.resolve_vllm_tag(cuda_version, image_override)
+        engine = os.environ.get("INFERENCE_ENGINE", "vllm").lower()
+        if engine not in {"vllm", "tgi"}:
+            raise DetailedValidationError(
+                message=f"Unsupported inference engine: '{engine}'.",
+                location=constants.ENV_FILE,
+                fix_instructions="Set INFERENCE_ENGINE to 'vllm' or 'tgi'.",
+            )
+        image = SystemInspector.resolve_image_tag(engine, cuda_version, image_override)
         return tuple(
             WorkloadSpec(
                 model_id=model["id"],
@@ -277,6 +285,7 @@ class DeploymentPlanner:
                 tensor_parallel_size=model.get(
                     "tensor_parallel_size", int(os.environ.get("TENSOR_PARALLEL_SIZE", "1"))
                 ),
+                engine=engine,
             )
             for model in active_models
         )
@@ -322,6 +331,12 @@ class SystemInspector:
         else:
             return constants.FALLBACK_VLLM_IMAGE
 
+    @classmethod
+    def resolve_image_tag(cls, engine, cuda_version_str, explicit_override=None):
+        if engine == "tgi":
+            return explicit_override or os.environ.get("TGI_IMAGE", constants.DEFAULT_TGI_IMAGE)
+        return cls.resolve_vllm_tag(cuda_version_str, explicit_override)
+
 
 class ConfigGenerator:
     """Render external Jinja2 template files using values directly from os.environ."""
@@ -339,6 +354,7 @@ class ConfigGenerator:
         langfuse_enabled = os.environ.get("LANGFUSE_ENABLED", "true").lower() == "true"
         context = {
             "active_models": active_models,
+            "inference_engine": os.environ.get("INFERENCE_ENGINE", "vllm").lower(),
             "litellm_max_budget": os.environ.get("LITELLM_MAX_BUDGET", "20"),
             "litellm_default_key_max_budget": os.environ.get(
                 "LITELLM_DEFAULT_KEY_MAX_BUDGET", "20"
@@ -362,6 +378,7 @@ class ConfigGenerator:
         db_name = os.environ["POSTGRES_DB"]
         langfuse_enabled = os.environ.get("LANGFUSE_ENABLED", "true").lower() == "true"
         nginx_enabled = os.environ.get("NGINX_ENABLED", "true").lower() == "true"
+        inference_engine = os.environ.get("INFERENCE_ENGINE", "vllm").lower()
 
         # Dynamically derive DATABASE_URL if not explicitly specified in .env
         db_url = os.environ.get(
@@ -370,6 +387,7 @@ class ConfigGenerator:
 
         context = {
             "active_models": active_models,
+            "inference_engine": inference_engine,
             "postgres_image": constants.POSTGRES_IMAGE,
             "litellm_image": constants.LITELLM_IMAGE,
             "db_user": db_user,
@@ -469,7 +487,10 @@ def main():
             fix_instructions="Set DEPLOYMENT_BACKEND to 'compose' or 'dstack'.",
         )
 
-    image_override = os.environ.get("VLLM_IMAGE_OVERRIDE")
+    inference_engine = os.environ.get("INFERENCE_ENGINE", "vllm").lower()
+    image_override = os.environ.get(
+        "TGI_IMAGE" if inference_engine == "tgi" else "VLLM_IMAGE_OVERRIDE"
+    )
     workloads = DeploymentPlanner.build(all_models, cuda_version, image_override)
     active_models = [
         {
@@ -481,6 +502,7 @@ def main():
             "port": workload.port,
             "max_model_len": workload.max_model_len,
             "tensor_parallel_size": workload.tensor_parallel_size,
+            "engine": workload.engine,
         }
         for workload in workloads
     ]

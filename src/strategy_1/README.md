@@ -108,6 +108,8 @@ Set every required value. Empty values fail validation before any files are gene
 | `PGDATA_PATH` | Host directory for PostgreSQL data |
 | `HF_HOME_PATH` | Host directory for Hugging Face model cache |
 | `HF_TOKEN` | Optional Hugging Face token for private or gated models |
+| `INFERENCE_ENGINE` | Inference server: `vllm` (default) or `tgi` |
+| `TGI_IMAGE` | TGI container image when `INFERENCE_ENGINE=tgi` |
 | `LITELLM_MASTER_KEY` | LiteLLM master/admin key |
 | `UI_USERNAME` | LiteLLM UI username |
 | `UI_PASSWORD` | LiteLLM UI password |
@@ -116,6 +118,9 @@ Optional values:
 
 - `HF_TOKEN` is passed to every vLLM container. Create a token at
     <https://huggingface.co/settings/tokens> and set it in `.env` when a model is private or gated.
+- Set `INFERENCE_ENGINE=tgi` to use Hugging Face Text Generation Inference. TGI uses
+    `--model-id`, `--max-total-tokens`, and `--num-shard` instead of vLLM's options. LiteLLM and
+    VS Code endpoints remain unchanged.
 - `DATABASE_URL` overrides the derived URL. Without it, the generator uses `postgresql://<user>:<password>@db:5432/<database>`.
 - `VLLM_IMAGE_OVERRIDE` forces one vLLM image for models that do not specify `vllm_image`.
 - `TENSOR_PARALLEL_SIZE` sets the default vLLM tensor parallel size. The engine validates each
