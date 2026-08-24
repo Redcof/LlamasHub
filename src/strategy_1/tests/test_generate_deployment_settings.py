@@ -13,7 +13,7 @@ Unit test suite for Deployment Orchestrator.
 import os
 import unittest
 
-from src.strategy_1.deploy import (
+from src.strategy_1.generate_deployment_settings import (
     ConfigGenerator,
     ConfigValidator,
     DeploymentPlanner,

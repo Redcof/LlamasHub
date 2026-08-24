@@ -5,3 +5,5 @@ __pycache__
 graphify-out
 .ruff_cache
 .envrc
+/docker-compose.yml
+/litellm_config.yaml
