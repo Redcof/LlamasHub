@@ -15,13 +15,15 @@ echo " uv Workspace Sync & Environment Setup"
 echo "=========================================================="
 
 # 1. Verify uv installation
-if ! command -v uv &> /dev/null; then
-    echo "Error: 'uv' is not installed."
+if command -v uv &> /dev/null; then
+    echo "✓ Found uv: $(uv --version)"
+else
+   echo "Error: 'uv' is not installed."
     echo "Install via: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
-echo "✓ Found uv: $(uv --version)"
+
 
 # 2. Check for pyproject.toml
 if [ ! -f "pyproject.toml" ]; then
