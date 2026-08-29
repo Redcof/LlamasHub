@@ -450,8 +450,9 @@ class ConfigGenerator:
         return cls._render_file(constants.DSTACK_TEMPLATE_PATH, {"workload": workload})
 
 
-def main():
+def main(env_file=constants.ENV_FILE):
     print("=== Deployment Orchestrator Running via uv ===")
+    load_dotenv(dotenv_path=env_file, override=True)
 
     # Validate all required environment variables exist
     EnvValidator.validate_or_raise()

@@ -1,5 +1,5 @@
 [project]
-name = "vllm-deployment-orchestrator"
+name = "llamashub"
 version = "0.1.0"
 description = "vLLM Multi-Model Deployment Engine"
 readme = "README.md"
@@ -10,6 +10,9 @@ dependencies = [
     "jinja2>=3.1.2",
     "python-dotenv>=1.0.0",
 ]
+
+[project.scripts]
+llamashub = "src.cli:main"
 
 # Development dependencies (testing, linting)
 [build-system]
