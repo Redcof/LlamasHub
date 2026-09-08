@@ -8,14 +8,27 @@ services:
       POSTGRES_DB: {{ db_name }}
     volumes:
       - pgdata:{{ pgdata_path }}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ db_user }}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
 
 {% for m in active_models %}
   {{ inference_engine }}-{{ m.id }}:
     image: {{ m.image }}
     restart: always
+    ports:
+      - "{{ m.port }}:{{ m.port }}"
     environment:
       - CUDA_VISIBLE_DEVICES={% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}{{ gpu_id }}{% if not loop.last %},{% endif %}{% endfor %}
       - HF_TOKEN
+      - VLLM_ENABLE_CUDA_COMPATIBILITY=1
     volumes:
       - {{ hf_home_path }}:/root/.cache/huggingface
     ipc: host
@@ -40,10 +53,15 @@ services:
       --tensor-parallel-size {{ m.tensor_parallel_size | default(1) }}
     {% endif %}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:{{ m.port }}/health', timeout=2)"]
+      test: ["CMD-SHELL", "curl -f http://localhost:{{ m.port }}/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
 
 {% endfor %}
 {% if langfuse_enabled %}
@@ -57,10 +75,29 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     volumes:
       - langfuse-clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8123/ping | grep Ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
 
   langfuse-redis:
     image: {{ redis_image }}
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
 
   langfuse-minio:
     image: {{ minio_image }}
@@ -71,10 +108,20 @@ services:
       MINIO_ROOT_PASSWORD: {{ langfuse_minio_secret_key }}
     volumes:
       - langfuse-minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
 
   langfuse:
     image: {{ langfuse_image }}
     restart: always
+    ports:
+      - "3000:3000"
     environment:
       DATABASE_URL: {{ langfuse_database_url }}
       NEXTAUTH_URL: http://localhost:3000
@@ -96,15 +143,24 @@ services:
       LANGFUSE_INIT_PROJECT_PUBLIC_KEY: {{ langfuse_public_key }}
       LANGFUSE_INIT_PROJECT_SECRET_KEY: {{ langfuse_secret_key }}
     depends_on:
-      - db
-      - langfuse-clickhouse
-      - langfuse-redis
-      - langfuse-minio
+      db:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/public/health').then(r => { if (!r.ok) process.exit(1) })"]
+      test: ["CMD-SHELL", "wget -q --spider http://$(hostname -i):3000/api/public/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
 {% endif %}
 
 {% if nginx_enabled %}
@@ -114,6 +170,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "4000:4000"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - {{ nginx_tls_certificate }}:/etc/nginx/tls/server.crt:ro
@@ -128,6 +185,11 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
     {% endif %}
 
   litellm:
@@ -147,17 +209,25 @@ services:
       - .env
     command: --config /app/config.yaml --port 4000
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/readiness', timeout=2)"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/health/readiness || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 {% for m in active_models %}
-      - {{ inference_engine }}-{{ m.id }}
+      {{ inference_engine }}-{{ m.id }}:
+        condition: service_healthy
 {% endfor %}
 {% if langfuse_enabled %}
-      - langfuse
+      langfuse:
+        condition: service_healthy
 {% endif %}
 
 volumes:
