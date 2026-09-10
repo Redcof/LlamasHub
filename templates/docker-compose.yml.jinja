@@ -213,6 +213,7 @@ services:
       - LITELLM_MASTER_KEY={{ litellm_master_key }}
       - UI_USERNAME={{ ui_username }}
       - UI_PASSWORD={{ ui_password }}
+      - REDIS_URL=redis://langfuse-redis:6379
 {% if nginx_enabled and langfuse_enabled %}
       - LANGFUSE_HOST={{ langfuse_host }}
 {% endif %}
@@ -233,6 +234,8 @@ services:
         max-file: "5"
     depends_on:
       db:
+        condition: service_healthy
+      langfuse-redis:
         condition: service_healthy
 {% for m in active_models %}
       {{ inference_engine }}-{{ m.id }}:
