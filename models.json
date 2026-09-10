@@ -19,7 +19,7 @@
     },
     {
         "id": "qwen-7b",
-        "model_name": "qwen2.5-coder-7b",
+        "model_name": "coding-planning-chat",
         "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
         "gpu_id": 0,
         "port": 8000,
