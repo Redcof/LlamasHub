@@ -4,7 +4,7 @@ model_list:
     litellm_params:
       model: hosted_vllm/{{ model.hf_repo }}
       api_base: http://{{ inference_engine }}-{{ model.id }}:{{ model.port }}/v1
-      max_tokens: 1024
+      max_tokens: 4096
 {% endfor %}
 
 general_settings:
@@ -13,6 +13,8 @@ general_settings:
   budget_duration: {{ litellm_budget_duration }}
   redis_url: redis://langfuse-redis:6379
 litellm_settings:
+  set_verbose: false
+  json_logs: false
 {% if litellm_fallback_model %}
   fallbacks:
     - {"{{ active_models[0].model_name }}": ["{{ litellm_fallback_model }}"]}
