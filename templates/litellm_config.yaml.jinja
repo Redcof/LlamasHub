@@ -4,6 +4,7 @@ model_list:
     litellm_params:
       model: hosted_vllm/{{ model.hf_repo }}
       api_base: http://{{ inference_engine }}-{{ model.id }}:{{ model.port }}/v1
+      max_tokens: 1024
 {% endfor %}
 
 general_settings:

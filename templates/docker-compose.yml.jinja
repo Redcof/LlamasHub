@@ -56,7 +56,7 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:{{ m.port }}/health || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 100
     logging:
       driver: json-file
       options:
@@ -142,6 +142,17 @@ services:
       S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_INIT_PROJECT_PUBLIC_KEY: {{ langfuse_public_key }}
       LANGFUSE_INIT_PROJECT_SECRET_KEY: {{ langfuse_secret_key }}
+      LANGFUSE_INIT_ORG_ID: smiths-detection-ai
+      LANGFUSE_INIT_ORG_NAME: Smiths Detection AI
+      LANGFUSE_INIT_PROJECT_ID: llamashub
+      LANGFUSE_INIT_PROJECT_NAME: Llamashub
+      LANGFUSE_INIT_USER_EMAIL: soumen.sardar@smithsdetection.com
+      LANGFUSE_INIT_USER_NAME: admin
+      LANGFUSE_INIT_USER_PASSWORD: admin-pool
+      LANGFUSE_MARKDOWN_RENDER_CHARACTER_LIMIT: 50000
+      LANGFUSE_MCP_ALLOWED_HOSTS: localhost,127.0.0.1
+      LANGFUSE_IN_APP_AGENT_MAX_ACTIVE_RUNS_PER_USER: 10
+      LANGFUSE_IN_APP_AGENT_MAX_ACTIVE_RUNS_PER_ORG: 100
     depends_on:
       db:
         condition: service_healthy
@@ -195,6 +206,8 @@ services:
   litellm:
     image: {{ litellm_image }}
     restart: always
+    ports:
+      - "4000:4000"
     environment:
       - DATABASE_URL={{ db_url }}
       - LITELLM_MASTER_KEY={{ litellm_master_key }}
@@ -209,7 +222,7 @@ services:
       - .env
     command: --config /app/config.yaml --port 4000
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4000/health/readiness || exit 1"]
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:4000/health/readiness', timeout=2)"]
       interval: 15s
       timeout: 5s
       retries: 5
