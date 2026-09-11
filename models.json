@@ -39,6 +39,16 @@
         "active": true
     },
     {
+        "id": "qwen-32b",
+        "model_name": "i32B32k",
+        "hf_repo": "Qwen/Qwen2.5-Coder-32B-Instruct",
+        "gpu_id": 0,
+        "port": 8000,
+        "max_model_len": 32768,
+        "vllm_image": "vllm/vllm-openai:v0.11.0",
+        "active": false
+    },
+    {
         "id": "tiny-gpt2",
         "model_name": "tiny-gpt2",
         "hf_repo": "sshleifer/tiny-gpt2",

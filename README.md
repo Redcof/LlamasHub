@@ -54,7 +54,7 @@ sh setup_uv.sh
 ### 🏃Start 
 
 ```
-sh src/strategy_1/deploy.sh
+sh deploy.sh
 ```
 
 - A litellm server will start at port 4000. Use `UI_USERNAME`, `UI_PASSWORD` to access it.
