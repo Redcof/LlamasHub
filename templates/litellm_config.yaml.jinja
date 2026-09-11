@@ -5,6 +5,14 @@ model_list:
       model: hosted_vllm/{{ model.hf_repo }}
       api_base: http://{{ inference_engine }}-{{ model.id }}:{{ model.port }}/v1
       max_tokens: 4096
+      drop_params: true
+      temperature: 0.1
+      top_p: 0.85
+      repetition_penalty: 1.15
+      presence_penalty: 0.2
+      initial_prompt_value: "BE EXTREMELY CONCISE AND DIRECT. Output only necessary code diffs or short bullet points. Avoid conversational fluff."
+
+
 {% endfor %}
 
 general_settings:

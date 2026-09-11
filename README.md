@@ -30,7 +30,7 @@ sh setup_uv.sh
 
 ### Configure
 
-**./models.json**
+**[`./models.json`](models.json)**
 - To activate models set `"activate=true"`. Number of active models dependes on your GPU limitations
 - `tensor_parallel_size=x` tells how many CUDA device to use during inferences. Incase you have 2 CUDA devices, you have set it to 2 then you ARE NOT ALLOWED to activate another model.
 - `model_name` a name as you wish - we prefer - `<prefix><param-count><context-length>` e.g. `i7B32K` meaning - a model with `7B parameter` and `32000 context length`
@@ -39,7 +39,7 @@ sh setup_uv.sh
 - `max_model_len=32768` The total context (`Input Prompt + Output`) length must be set as per model and GPU limitations. Smaller context allows more and faster intereaction while restrict agentic capabilities. `32768` is good for coding.
 - `hf_repo=...` A qualified HF model
 
-**./templates/litellm_config.yaml.jinja**
+**[`./templates/litellm_config.yaml.jinja`](templates/litellm_config.yaml.jinja)**
 - Set `model_list > model_name > litellm_params > max_tokens: 4096` - This is size of `Output` per interaction. `4096` is good for coding.
 
 
@@ -63,12 +63,13 @@ sh deploy.sh
 
 ## For User
 
-### Cline VSCode Plugin
+### `Cline` VSCode Plugin
 - API Provider=`LiteLLM`
 - Base URL=`http://hostname/v1` ()
 - API Key=`LITELLM_MASTER_KEY`
 - Refresh Models
-- Done
+- Save
+- Copy [`.clinerules`](.clinerules) file to your workspace
 
 **!!!! Edit !!!! `~/.cline/data/globalState.json`**
 ```json
