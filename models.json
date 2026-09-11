@@ -19,21 +19,22 @@
     },
     {
         "id": "deepseek-r1-qwen-7b",
-        "model_name": "iArchitect-7b",
+        "model_name": "i7B64k",
         "hf_repo": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
         "gpu_id": 1,
         "port": 8002,
-        "max_model_len": 8192,
+        "max_model_len": 65536,
+        "tensor_parallel_size": 1,
         "vllm_image": "vllm/vllm-openai:v0.11.0",
         "active": true
     },
     {
         "id": "qwen-7b",
-        "model_name": "iCoding-7b",
+        "model_name": "i7B32k",
         "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
         "gpu_id": 0,
         "port": 8000,
-        "max_model_len": 8192,
+        "max_model_len": 32768,
         "vllm_image": "vllm/vllm-openai:v0.11.0",
         "active": true
     },
