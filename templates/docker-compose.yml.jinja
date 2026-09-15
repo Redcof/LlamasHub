@@ -3,11 +3,11 @@ services:
     image: {{ postgres_image }}
     restart: always
     environment:
-      POSTGRES_USER: {{ db_user }}
-      POSTGRES_PASSWORD: {{ db_pass }}
-      POSTGRES_DB: {{ db_name }}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pgdata:{{ pgdata_path }}
+      - pgdata:${PGDATA_PATH}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U {{ db_user }}"]
       interval: 15s
@@ -72,10 +72,10 @@ services:
     image: {{ clickhouse_image }}
     restart: always
     environment:
-      CLICKHOUSE_DB: default
-      CLICKHOUSE_USER: clickhouse
-      CLICKHOUSE_PASSWORD: clickhouse
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: ${CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT}
     volumes:
       - langfuse-clickhouse-data:/var/lib/clickhouse
     healthcheck:
@@ -107,8 +107,8 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: {{ langfuse_minio_access_key }}
-      MINIO_ROOT_PASSWORD: {{ langfuse_minio_secret_key }}
+      MINIO_ROOT_USER: ${LANGFUSE_S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_S3_SECRET_ACCESS_KEY}
     volumes:
       - langfuse-minio-data:/data
     healthcheck:
@@ -124,34 +124,34 @@ services:
     image: {{ langfuse_image }}
     restart: always
     ports:
-      - "3000:3000"
+      - "${LANGFUSE_PORT}:${LANGFUSE_PORT}"
     environment:
-      DATABASE_URL: {{ langfuse_database_url }}
-      NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: {{ langfuse_nextauth_secret }}
-      SALT: {{ langfuse_salt }}
-      ENCRYPTION_KEY: {{ langfuse_encryption_key }}
-      TELEMETRY_ENABLED: "false"
-      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:clickhouse@langfuse-clickhouse:9000/default
+      DATABASE_URL: ${DATABASE_URL}
+      NEXTAUTH_URL: ${LANGFUSE_HOST}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      TELEMETRY_ENABLED: "true"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@langfuse-clickhouse:9000/default
       CLICKHOUSE_URL: http://langfuse-clickhouse:8123
-      CLICKHOUSE_USER: clickhouse
-      CLICKHOUSE_PASSWORD: clickhouse
-      REDIS_CONNECTION_STRING: redis://langfuse-redis:6379
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      REDIS_CONNECTION_STRING: ${REDIS_URL}
       S3_EVENT_UPLOAD_BUCKET: langfuse
       S3_EVENT_UPLOAD_REGION: us-east-1
-      S3_EVENT_UPLOAD_ACCESS_KEY_ID: {{ langfuse_minio_access_key }}
-      S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: {{ langfuse_minio_secret_key }}
-      S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY_ID}
+      S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_ACCESS_KEY}
+      S3_EVENT_UPLOAD_ENDPOINT: ${MINIO_URL}
       S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
-      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: {{ langfuse_public_key }}
-      LANGFUSE_INIT_PROJECT_SECRET_KEY: {{ langfuse_secret_key }}
-      LANGFUSE_INIT_ORG_ID: smiths-detection-ai
-      LANGFUSE_INIT_ORG_NAME: Smiths Detection AI
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME}
       LANGFUSE_INIT_PROJECT_ID: llamashub
       LANGFUSE_INIT_PROJECT_NAME: Llamashub
-      LANGFUSE_INIT_USER_EMAIL: soumen.sardar@smithsdetection.com
-      LANGFUSE_INIT_USER_NAME: admin
-      LANGFUSE_INIT_USER_PASSWORD: admin-pool
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
       LANGFUSE_MARKDOWN_RENDER_CHARACTER_LIMIT: 50000
       LANGFUSE_MCP_ALLOWED_HOSTS: localhost,127.0.0.1
       LANGFUSE_IN_APP_AGENT_MAX_ACTIVE_RUNS_PER_USER: 10
@@ -166,7 +166,7 @@ services:
       langfuse-minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://$(hostname -i):3000/api/public/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://$(hostname -i):${LANGFUSE_PORT}/api/public/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -184,11 +184,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "4000:4000"
+      - "${LITELLM_PORT}:${LITELLM_PORT}"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - {{ nginx_tls_certificate }}:/etc/nginx/tls/server.crt:ro
-      - {{ nginx_tls_certificate_key }}:/etc/nginx/tls/server.key:ro
+      - ${NGINX_TLS_CERTIFICATE}:/etc/nginx/tls/server.crt:ro
+      - ${NGINX_TLS_CERTIFICATE_KEY}:/etc/nginx/tls/server.key:ro
     depends_on:
       - litellm
 {% if langfuse_enabled %}
@@ -210,23 +210,23 @@ services:
     image: {{ litellm_image }}
     restart: always
     ports:
-      - "4000:4000"
+      - "${LITELLM_PORT}:${LITELLM_PORT}"
     environment:
-      - DATABASE_URL={{ db_url }}
-      - LITELLM_MASTER_KEY={{ litellm_master_key }}
-      - UI_USERNAME={{ ui_username }}
-      - UI_PASSWORD={{ ui_password }}
-      - REDIS_URL=redis://langfuse-redis:6379
+      - DATABASE_URL=${DATABASE_URL}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - UI_USERNAME=${UI_USERNAME}
+      - UI_PASSWORD=${UI_PASSWORD}
+      - REDIS_URL=${REDIS_URL}
 {% if nginx_enabled and langfuse_enabled %}
-      - LANGFUSE_HOST={{ langfuse_host }}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
 {% endif %}
     volumes:
       - ./litellm_config.yaml:/app/config.yaml
     env_file:
       - .env
-    command: --config /app/config.yaml --port 4000
+    command: --config /app/config.yaml --port ${LITELLM_PORT}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:4000/health/readiness', timeout=2)"]
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${LITELLM_PORT}/health/readiness', timeout=2)"]
       interval: 15s
       timeout: 5s
       retries: 5

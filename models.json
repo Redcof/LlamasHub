@@ -36,6 +36,7 @@
         "port": 8000,
         "max_model_len": 32768,
         "vllm_image": "vllm/vllm-openai:v0.11.0",
+        "hf-overrides": "{\"rope_parameters\": {\"factor\": 4.0, \"original_max_position_embeddings\": 32768, \"rope_theta\": 1000000, \"rope_type\": \"yarn\"}}",
         "active": true
     },
     {
@@ -46,6 +47,7 @@
         "port": 8000,
         "max_model_len": 32768,
         "vllm_image": "vllm/vllm-openai:v0.11.0",
+        "hf-overrides": "{\"rope_parameters\": {\"factor\": 4.0, \"original_max_position_embeddings\": 32768, \"rope_theta\": 1000000, \"rope_type\": \"yarn\"}}",
         "active": false
     },
     {

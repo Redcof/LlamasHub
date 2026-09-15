@@ -452,7 +452,7 @@ class ConfigGenerator:
 
 def main(env_file=constants.ENV_FILE):
     print("=== Deployment Orchestrator Running via uv ===")
-    load_dotenv(dotenv_path=env_file, override=True)
+    load_dotenv(dotenv_path=env_file, override=True, verbose=True, interpolate=True)
 
     # Validate all required environment variables exist
     EnvValidator.validate_or_raise()

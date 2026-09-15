@@ -1,12 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
 set -e
-
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
-ENV_FILE="${1:-${LLAMASHUB_ENV_FILE:-${PROJECT_ROOT}/.env}}"
-PYTHON="${LLAMASHUB_PYTHON:-python3}"
-
-cd "${PROJECT_ROOT}"
 
 # Reusable Confirmation Function
 confirm_action() {
@@ -34,7 +28,7 @@ echo "=== Running Python Logic Unit Tests ==="
 
 # Execute Python engine
 echo "=== Executing Deployment Engine ==="
-"${PYTHON}" -m src.strategy_1.generate_deployment_settings "${ENV_FILE}"
+python -m src.strategy_1.generate_deployment_settings .env
 
 # Backend execution
 echo ""
@@ -53,7 +47,7 @@ if [[ "${DEPLOYMENT_BACKEND:-compose}" == "dstack" ]]; then
     fi
 else
     sudo docker compose down --remove-orphans
-    sudo docker compose up -d --remove-orphans
+    sudo docker compose --env-file .env up -d --remove-orphans
 fi
 
 if [[ "${DEPLOYMENT_BACKEND:-compose}" != "dstack" ]]; then
