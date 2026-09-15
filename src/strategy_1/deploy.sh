@@ -29,7 +29,7 @@ echo "=== Running Python Logic Unit Tests ==="
 # Execute Python engine
 echo "=== Executing Deployment Engine ==="
 python -m src.strategy_1.generate_deployment_settings .env
-
+exit
 # Backend execution
 echo ""
 if [[ "${DEPLOYMENT_BACKEND:-compose}" == "dstack" ]]; then
