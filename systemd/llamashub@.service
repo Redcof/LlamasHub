@@ -1,0 +1,24 @@
+[Unit]
+Description=LlamasHub Docker deployment (%i)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=llamashub
+SupplementaryGroups=docker
+WorkingDirectory=/opt/llamashub
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/llamashub/%i.env
+ExecStart=/opt/llamashub/src/strategy_1/deploy.sh /etc/llamashub/%i.env
+ExecStop=/usr/bin/docker compose --env-file /etc/llamashub/%i.env down
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=llamashub
+
+[Install]
+WantedBy=multi-user.target
