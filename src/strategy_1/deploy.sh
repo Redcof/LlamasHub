@@ -52,7 +52,8 @@ if [[ "${DEPLOYMENT_BACKEND:-compose}" == "dstack" ]]; then
         echo "dstack deployment skipped. Output files generated."
     fi
 else
-    docker compose --env-file "${ENV_FILE}" up -d --remove-orphans
+    sudo docker compose down --remove-orphans
+    sudo docker compose up -d --remove-orphans
 fi
 
 if [[ "${DEPLOYMENT_BACKEND:-compose}" != "dstack" ]]; then

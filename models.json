@@ -12,18 +12,39 @@
         "id": "deepseek-coder",
         "model_name": "deepseek-coder-6.7b",
         "hf_repo": "deepseek-ai/deepseek-coder-6.7b-instruct",
-        "gpu_id": 0,
+        "gpu_id": 1,
         "port": 8002,
         "max_model_len": 4096,
         "active": false
     },
     {
+        "id": "deepseek-r1-qwen-7b",
+        "model_name": "i7B64k",
+        "hf_repo": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+        "gpu_id": 1,
+        "port": 8002,
+        "max_model_len": 65536,
+        "tensor_parallel_size": 1,
+        "vllm_image": "vllm/vllm-openai:v0.11.0",
+        "active": true
+    },
+    {
         "id": "qwen-7b",
-        "model_name": "qwen2.5-coder-7b",
+        "model_name": "i7B32k",
         "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
         "gpu_id": 0,
         "port": 8000,
-        "max_model_len": 4096,
+        "max_model_len": 32768,
+        "vllm_image": "vllm/vllm-openai:v0.11.0",
+        "active": true
+    },
+    {
+        "id": "qwen-32b",
+        "model_name": "i32B32k",
+        "hf_repo": "Qwen/Qwen2.5-Coder-32B-Instruct",
+        "gpu_id": 0,
+        "port": 8000,
+        "max_model_len": 32768,
         "vllm_image": "vllm/vllm-openai:v0.11.0",
         "active": false
     },
@@ -34,7 +55,7 @@
         "gpu_id": 0,
         "port": 8003,
         "max_model_len": 512,
-        "active": true
+        "active": false
     },
     {
         "id": "tiny-random-llama",
@@ -43,6 +64,6 @@
         "gpu_id": 1,
         "port": 8004,
         "max_model_len": 512,
-        "active": true
+        "active": false
     }
 ]
