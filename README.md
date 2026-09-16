@@ -83,13 +83,14 @@ sh setup_uv.sh
 
 **[`./templates/litellm_config.yaml.jinja`](templates/litellm_config.yaml.jinja)**
 - Set `model_list > model_name > litellm_params > max_tokens: 4096` - This is size of `Output` per interaction. `4096` is good for coding.
+- Set `model_list > model_name > model_info > input_cost_per_token: 0.00000003` - Input Token cost
+- Set `model_list > model_name > model_info > output_cost_per_token: 0.00000009` - Output Token cost
 
 
-**.env**
+**[`.env`](.env.template)**
 
-- Copy `cp .env.template .env` update the values carefully
-- DO NOT COMMIT
-- Use `openssl rand -hex 32` to generate random hex
+- Copy `cp .env.template .env` update the values carefully - `DO NOT COMMIT`
+- Use `openssl rand -hex 32` to generate random 32bytes hex
 - A `huggingface` account with a `API key` e.g. `hf_cDDN....`
 
 
@@ -98,35 +99,15 @@ sh setup_uv.sh
 ```
 sh deploy.sh
 ```
+### Dashboards
 
-- A litellm server will start at port 4000. Use `UI_USERNAME`, `UI_PASSWORD` to access it.
+- A `litellm` server will start `http://ip-address:4000`. Use `UI_USERNAME`, `UI_PASSWORD` to access it.
+- A `langfuse` server will start `http://ip-address:3000`. Use `LANGFUSE_INIT_USER_EMAIL`, `LANGFUSE_INIT_USER_PASSWORD` to access it.
 
 
 
 ## For User
 
-### `Cline` VSCode Plugin
-- API Provider=`LiteLLM`
-- Base URL=`http://hostname/v1` ()
-- API Key=`LITELLM_MASTER_KEY`
-- Refresh Models
-- Save
-- Copy [`.clinerules`](.clinerules) file to your workspace
-
-**!!!! Edit !!!! `~/.cline/data/globalState.json`**
-```json
-// ~/.cline/data/globalState.json
-{
-    ...
-    "actModeLiteLlmModelInfo": {
-        "name": "model-name-1",
-        "contextWindow": 128000, # <- set as per `models:max_model_len` config e.g. 32000
-        "maxTokens": -1,         # <- set as per `litellm:max_tokens` config e.g. 4096
-    ...
-  }
-  ...
-}
-```
-- Restart `VS Code`
+Read this article on how to use it on : [`VSCode Cline Plugin >`](README_USER_GUIDE.md)
 
 
