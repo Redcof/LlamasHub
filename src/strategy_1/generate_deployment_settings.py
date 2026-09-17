@@ -35,20 +35,20 @@ class DetailedValidationError(Exception):
         )
 
 
-@dataclass(frozen=True)
-class WorkloadSpec:
-    """Normalized model workload shared by deployment backends."""
+# @dataclass(frozen=True)
+# class WorkloadSpec:
+#     """Normalized model workload shared by deployment backends."""
 
-    model_id: str
-    model_name: str
-    hf_repo: str
-    image: str
-    gpu_id: int
-    port: int
-    max_model_len: int
-    replicas: int = 1
-    tensor_parallel_size: int = 1
-    engine: str = "vllm"
+#     model_id: str
+#     model_name: str
+#     hf_repo: str
+#     image: str
+#     gpu_id: int
+#     port: int
+#     max_model_len: int
+#     replicas: int = 1
+#     tensor_parallel_size: int = 1
+#     engine: str = "vllm"
 
 
 class SystemRunner:
@@ -192,7 +192,7 @@ class ConfigValidator:
 
     @staticmethod
     def validate_models(active_models):
-        required = ("id", "model_name", "hf_repo", "gpu_id", "port", "max_model_len")
+        required = ("id", "model_name", "hf_repo", "gpu_id", "port")
         seen_ids = set()
         for model in active_models:
             missing = [field for field in required if field not in model]
@@ -220,7 +220,7 @@ class ConfigValidator:
                 )
             seen_ids.add(model_id)
 
-            for field in ("gpu_id", "port", "max_model_len"):
+            for field in ("gpu_id", "port"):
                 if not isinstance(model[field], int) or isinstance(model[field], bool):
                     raise DetailedValidationError(
                         message=f"Model '{model_id}' field '{field}' must be an integer.",
@@ -273,20 +273,7 @@ class DeploymentPlanner:
             )
         image = SystemInspector.resolve_image_tag(engine, cuda_version, image_override)
         return tuple(
-            WorkloadSpec(
-                model_id=model["id"],
-                model_name=model["model_name"],
-                hf_repo=model["hf_repo"],
-                image=model.get("vllm_image") or image,
-                gpu_id=model["gpu_id"],
-                port=model["port"],
-                max_model_len=model["max_model_len"],
-                replicas=model.get("replicas", 1),
-                tensor_parallel_size=model.get(
-                    "tensor_parallel_size", int(os.environ.get("TENSOR_PARALLEL_SIZE", "1"))
-                ),
-                engine=engine,
-            )
+            model
             for model in active_models
         )
 
@@ -494,17 +481,7 @@ def main(env_file=constants.ENV_FILE):
     )
     workloads = DeploymentPlanner.build(all_models, cuda_version, image_override)
     active_models = [
-        {
-            "id": workload.model_id,
-            "model_name": workload.model_name,
-            "hf_repo": workload.hf_repo,
-            "image": workload.image,
-            "gpu_id": workload.gpu_id,
-            "port": workload.port,
-            "max_model_len": workload.max_model_len,
-            "tensor_parallel_size": workload.tensor_parallel_size,
-            "engine": workload.engine,
-        }
+        workload
         for workload in workloads
     ]
 
@@ -514,7 +491,7 @@ def main(env_file=constants.ENV_FILE):
     if backend == "compose":
         ConfigValidator.check_duplicate_ports(active_models)
         ConfigValidator.check_gpu_overload(active_models)
-        ConfigValidator.check_tensor_parallelism(workloads, total_gpus)
+        # ConfigValidator.check_tensor_parallelism(workloads, total_gpus)
         if total_gpus > 0:
             ConfigValidator.check_gpu_bounds(active_models, total_gpus)
 

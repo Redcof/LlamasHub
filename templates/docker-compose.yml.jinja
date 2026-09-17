@@ -41,20 +41,11 @@ services:
               device_ids: [{% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}'{{ gpu_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]
               capabilities: [gpu]
     command: >
-    {% if inference_engine == "tgi" %}
-      --model-id {{ m.hf_repo }}
-      --port {{ m.port }}
-      --max-total-tokens {{ m.max_model_len }}
-      --num-shard {{ m.tensor_parallel_size | default(1) }}
-    {% else %}
-      --model {{ m.hf_repo }}
-      --port {{ m.port }}
-      --gpu-memory-utilization 0.85
-      --max-model-len {{ m.max_model_len }}
-      --tensor-parallel-size {{ m.tensor_parallel_size | default(1) }}
-      --enable-auto-tool-choice
-      --tool-call-parser hermes
-      --generation-config vllm
+    {% if inference_engine == "vllm" %}
+      --model {{ m["hf_repo"] }}
+      --port {{ m["port"] }}
+      {% for k, v in m["vllm-commands"].items() %}
+      --{{ k }} {{ v }}{% endfor %}
     {% endif %}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:{{ m.port }}/health || exit 1"]
@@ -68,6 +59,7 @@ services:
         max-file: "5"
 
 {% endfor %}
+
 {% if langfuse_enabled %}
   langfuse-clickhouse:
     image: {{ clickhouse_image }}
