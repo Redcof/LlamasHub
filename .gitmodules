@@ -1,0 +1,3 @@
+[submodule "src/external/vllm_qwen25_coder_tool_parser"]
+	path = src/external/vllm_qwen25_coder_tool_parser
+	url = https://github.com/Redcof/vllm-qwen2.5-coder-tool-parser.git

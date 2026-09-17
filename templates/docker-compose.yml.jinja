@@ -32,6 +32,7 @@ services:
       - VLLM_ENABLE_CUDA_COMPATIBILITY=1
     volumes:
       - {{ hf_home_path }}:/root/.cache/huggingface
+      - ./src/external/vllm_qwen25_coder_tool_parser:/external/vllm_qwen25_coder_tool_parser
     ipc: host
     deploy:
       resources:
@@ -53,7 +54,9 @@ services:
       --max-model-len {{ m.max_model_len }}
       --tensor-parallel-size {{ m.tensor_parallel_size | default(1) }}
       --enable-auto-tool-choice
-      --tool-call-parser hermes
+      --tool-parser-plugin /external/vllm_qwen25_coder_tool_parser/qwen2_5_coder_tool_parser.py
+      --tool-call-parser qwen2_5_coder
+      --chat-template /external/vllm_qwen25_coder_tool_parser/tool_chat_template_qwen2_5_coder.jinja
       --generation-config vllm
     {% endif %}
     healthcheck:
