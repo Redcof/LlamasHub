@@ -53,7 +53,7 @@
         "port": 8001,
         "docker-env": {
             "NVIDIA_VISIBLE_DEVICES": "",
-            "HF_TOKEN": "${HF_TOKEN}",
+            "HUGGING_FACE_HUB_TOKEN": "${HF_TOKEN}",
             "CUDA_VISIBLE_DEVICES": 0,
             "VLLM_ENABLE_CUDA_COMPATIBILITY": 1
         },
