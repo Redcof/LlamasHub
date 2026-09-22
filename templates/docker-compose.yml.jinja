@@ -26,10 +26,10 @@ services:
     ports:
       - "{{ m.port }}:{{ m.port }}"
     environment:
-      - NVIDIA_VISIBLE_DEVICES={% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}{{ gpu_id }}{% if not loop.last %},{% endif %}{% endfor %}
-      - HF_TOKEN
-      - CUDA_VISIBLE_DEVICES=0
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
       - VLLM_ENABLE_CUDA_COMPATIBILITY=1
+      {% for k, v in m["docker-env"].items() %}
+      - {{ k }}={{ v }}{% endfor %}
     volumes:
       - {{ hf_home_path }}:/root/.cache/huggingface
     ipc: host
@@ -38,7 +38,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: [{% for gpu_id in range(m.gpu_id, m.gpu_id + (m.tensor_parallel_size | default(1))) %}'{{ gpu_id }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+              {{ m['device_ids__key'] }}: {{ m['device_ids__val'] }}
               capabilities: [gpu]
     command: >
     {% if inference_engine == "vllm" %}

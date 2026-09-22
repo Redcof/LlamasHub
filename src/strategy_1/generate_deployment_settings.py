@@ -35,22 +35,6 @@ class DetailedValidationError(Exception):
         )
 
 
-# @dataclass(frozen=True)
-# class WorkloadSpec:
-#     """Normalized model workload shared by deployment backends."""
-
-#     model_id: str
-#     model_name: str
-#     hf_repo: str
-#     image: str
-#     gpu_id: int
-#     port: int
-#     max_model_len: int
-#     replicas: int = 1
-#     tensor_parallel_size: int = 1
-#     engine: str = "vllm"
-
-
 class SystemRunner:
     """Single subprocess wrapper."""
 
@@ -113,63 +97,10 @@ class ConfigValidator:
                 ),
             )
 
-    @staticmethod
-    def check_gpu_overload(active_models):
-        gpus = [m["gpu_id"] for m in active_models]
-        duplicates = set([g for g in gpus if gpus.count(g) > 1])
-        if duplicates:
-            raise DetailedValidationError(
-                message=f"GPU Overload: Multiple models assigned to GPU ID(s): {duplicates}",
-                location=constants.MODELS_FILE,
-                fix_instructions=(
-                    "Change the 'gpu_id' values in models.json so that models run on distinct GPUs."
-                ),
-            )
 
-    @staticmethod
-    def check_tensor_parallelism(workloads, total_gpus):
-        allocated = set()
-        for workload in workloads:
-            gpu_ids = set(range(workload.gpu_id, workload.gpu_id + workload.tensor_parallel_size))
-            if total_gpus > 0 and max(gpu_ids) >= total_gpus:
-                raise DetailedValidationError(
-                    message=(
-                        f"Model '{workload.model_name}' requests "
-                        f"TP={workload.tensor_parallel_size} starting at GPU {workload.gpu_id}, "
-                        f"but the system has only {total_gpus} GPU(s)."
-                    ),
-                    location=constants.MODELS_FILE,
-                    fix_instructions=(
-                        "Set tensor_parallel_size/TENSOR_PARALLEL_SIZE to fit the physical GPUs "
-                        "on one server, or choose a valid starting gpu_id."
-                    ),
-                )
-            overlap = allocated.intersection(gpu_ids)
-            if overlap:
-                raise DetailedValidationError(
-                    message=(
-                        f"Tensor-parallel GPU allocation overlaps on GPU ID(s): {sorted(overlap)}"
-                    ),
-                    location=constants.MODELS_FILE,
-                    fix_instructions="Assign non-overlapping GPU ranges to active models.",
-                )
-            allocated.update(gpu_ids)
 
-    @staticmethod
-    def check_gpu_bounds(active_models, total_gpus):
-        for m in active_models:
-            if m["gpu_id"] >= total_gpus:
-                raise DetailedValidationError(
-                    message=(
-                        f"Model '{m['model_name']}' assigned to GPU {m['gpu_id']}, but system "
-                        f"has only {total_gpus} GPU(s)."
-                    ),
-                    location=constants.MODELS_FILE,
-                    fix_instructions=(
-                        f"Update 'gpu_id' for '{m['model_name']}' in models.json to a value "
-                        f"between 0 and {max(0, total_gpus - 1)}."
-                    ),
-                )
+    
+
 
     @staticmethod
     def check_port_availability(active_models):
@@ -192,7 +123,7 @@ class ConfigValidator:
 
     @staticmethod
     def validate_models(active_models):
-        required = ("id", "model_name", "hf_repo", "gpu_id", "port")
+        required = ("id", "model_name", "hf_repo", "port")
         seen_ids = set()
         for model in active_models:
             missing = [field for field in required if field not in model]
@@ -220,14 +151,14 @@ class ConfigValidator:
                 )
             seen_ids.add(model_id)
 
-            for field in ("gpu_id", "port"):
+            for field in ["port"]:
                 if not isinstance(model[field], int) or isinstance(model[field], bool):
                     raise DetailedValidationError(
                         message=f"Model '{model_id}' field '{field}' must be an integer.",
                         location=constants.MODELS_FILE,
                         fix_instructions=f"Set '{field}' to a positive integer.",
                     )
-                if model[field] < 0 or (field != "gpu_id" and model[field] == 0):
+                if model[field] < 0 or (model[field] == 0):
                     raise DetailedValidationError(
                         message=f"Model '{model_id}' field '{field}' has an invalid value.",
                         location=constants.MODELS_FILE,
@@ -249,13 +180,35 @@ class ConfigValidator:
                     fix_instructions="Set 'tensor_parallel_size' to a positive integer.",
                 )
 
+def nvidia_visible_devices_to_device_ids(model) -> dict:
+        """
+        Convert NVIDIA_VISIBLE_DEVICES to 'device_ids'.
+        """
+        nvd = model.get("docker-env", dict()).get("NVIDIA_VISIBLE_DEVICES", None)
+        key = "count"
+        val = "0"
+        if nvd:
+            nvd = nvd.strip()
+
+            if nvd == "all":
+                key = "count"
+                val = "all"
+            else:
+                key = "device_ids"
+                val = ['%s' % gpu.strip() for gpu in nvd.split(",")]
+        # update
+        model["device_ids__key"] = key
+        model["device_ids__val"] = val
+        return model
 
 class DeploymentPlanner:
     """Build a backend-neutral deployment plan from model configuration."""
 
+    
+
     @classmethod
     def build(cls, models, cuda_version="12.0", image_override=None):
-        active_models = [model for model in models if model.get("active", False)]
+        active_models = [nvidia_visible_devices_to_device_ids(model) for model in models if model.get("active", False)]
         if not active_models:
             raise DetailedValidationError(
                 message="No active models designated for deployment.",
@@ -490,10 +443,10 @@ def main(env_file=constants.ENV_FILE):
 
     if backend == "compose":
         ConfigValidator.check_duplicate_ports(active_models)
-        ConfigValidator.check_gpu_overload(active_models)
+        # ConfigValidator.check_gpu_overload(active_models)
         # ConfigValidator.check_tensor_parallelism(workloads, total_gpus)
-        if total_gpus > 0:
-            ConfigValidator.check_gpu_bounds(active_models, total_gpus)
+        # if total_gpus > 0:
+        #     ConfigValidator.check_gpu_bounds(active_models, total_gpus)
 
     print("[Validation] Configuration and network checks passed.")
 
