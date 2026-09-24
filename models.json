@@ -84,7 +84,6 @@
         "port": 8000,
         "docker-env": {
             "NVIDIA_VISIBLE_DEVICES": "all",
-            "PYTORCH_CUDA_ALLOC_CONF":"\"expandable_segments:True\""
         },
         "vllm-commands": {
             "uvicorn-log-level": "debug",
