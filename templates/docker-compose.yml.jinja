@@ -42,7 +42,7 @@ services:
               capabilities: [gpu]
     command: >
     {% if inference_engine == "vllm" %}
-      --model {{ m["hf_repo"] }}
+      {{ m["hf_repo"] }}
       --port {{ m["port"] }}
       {% for k, v in m["vllm-commands"].items() %}
       --{{ k }} {{ v }}{% endfor %}

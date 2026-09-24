@@ -1,6 +1,7 @@
 [
     {
-        "active": true,
+        "# comment": "plain qwen7b 32k with 1 GPU",
+        "active": false,
         "id": "qwen-7b",
         "model_name": "i7B32k",
         "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
@@ -21,27 +22,84 @@
         }
     },
     {
-        "active": true,
-        "id": "qwen-7b",
-        "model_name": "i7B32k",
-        "hf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "# comment": "plain qwen14b 64k with 2 GPU",
+        "active": false,
+        "id": "qwen-14b",
+        "model_name": "i14B64k",
+        "hf_repo": "Qwen/Qwen2.5-Coder-14B-Instruct",
         "image": "vllm/vllm-openai:v0.11.0",
         "port": 8000,
         "docker-env": {
             "NVIDIA_VISIBLE_DEVICES": "0,1",
-            "CUDA_VISIBLE_DEVICES": 0
+            "CUDA_VISIBLE_DEVICES": "0,1",
+            "VLLM_ALLOW_LONG_MAX_MODEL_LEN":1
         },
         "vllm-commands": {
             "uvicorn-log-level": "debug",
-            "gpu-memory-utilization": 0.85,            
-            "max_model_len": 32768,
-            "tensor-parallel-size": 1,
+            "dtype":"float16",
+            "gpu-memory-utilization": 0.95,            
+            "max_model_len": 65536,
+            "tensor-parallel-size": 2,
             "enable-auto-tool-choice": "",
             "tool-call-parser": "hermes",
             "generation-config": "vllm"
         }
     },
     {
+        "# comment": "plain qwen14b 32k with 2 GPU",
+        "active": false,
+        "id": "qwen-14b",
+        "model_name": "i14B32k",
+        "hf_repo": "Qwen/Qwen2.5-Coder-14B-Instruct",
+        "image": "vllm/vllm-openai:v0.11.0",
+        "port": 8000,
+        "docker-env": {
+            "NVIDIA_VISIBLE_DEVICES": "0,1",
+            "CUDA_VISIBLE_DEVICES": "0,1",
+            "PYTORCH_CUDA_ALLOC_CONF":"expandable_segments:True",
+            "DEBUG___VLLM_LOGGING_LEVEL": "DEBUG",
+            "DEBUG___VLLM_CONFIGURE_LOGGING": 1,
+            "DEBUG___NCCL_DEBUG": "TRACE",
+            "DEBUG___CUDA_LAUNCH_BLOCKING":1
+
+        },
+        "vllm-commands": {
+            "uvicorn-log-level": "debug",
+            "dtype":"float16",
+            "gpu-memory-utilization": 0.85,            
+            "max_model_len": 32768,
+            "tensor-parallel-size": 2,
+            "enable-auto-tool-choice": "",
+            "tool-call-parser": "openai",
+            "generation-config": "vllm"
+        }
+    },
+    {
+        "# comment": "plain qwen30b fp8 131k with 2 GPU",
+        "active": true,
+        "id": "qwen-30b",
+        "model_name": "i30B131k",
+        "hf_repo": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+        "image": "vllm/vllm-openai:v0.15.0",
+        "port": 8000,
+        "docker-env": {
+            "NVIDIA_VISIBLE_DEVICES": "all",
+            "PYTORCH_CUDA_ALLOC_CONF":"\"expandable_segments:True\""
+        },
+        "vllm-commands": {
+            "uvicorn-log-level": "debug",
+            "gpu-memory-utilization": 0.92,        
+            "max_model_len": 131072,
+            "enable-expert-parallel": "",
+            "tensor-parallel-size": 2,
+            "enable-auto-tool-choice": "",
+            "tool-call-parser": "qwen3_coder",
+            "trust-remote-code":"",
+            "generation-config": "vllm"
+        }
+    },
+    {
+        "# comment": "plain deepseek 64k with 1 GPU",
         "active": false,
         "id": "deepseek-r1-qwen-7b",
         "model_name": "i7B64k",
