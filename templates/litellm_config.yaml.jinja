@@ -21,7 +21,7 @@ general_settings:
   max_budget: {{ litellm_max_budget }}
   default_key_max_budget: {{ litellm_default_key_max_budget }}
   budget_duration: {{ litellm_budget_duration }}
-  redis_url: redis://langfuse-redis:6379
+  redis_url: ${REDIS_URL}
 litellm_settings:
   set_verbose: false
   json_logs: false

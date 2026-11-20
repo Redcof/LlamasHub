@@ -1,5 +1,7 @@
 # LlamasHub
 
+See our quickstart guide > [quickstart\README.md](quickstart\README.md)
+
 Deploy multiple open-source LLMs on your own NVIDIA GPU server and access them through a single OpenAI-compatible API.
 
 LlamasHub combines vLLM, LiteLLM, PostgreSQL, and Docker Compose into a simple deployment workflow. Configure your models in `models.json`, provide credentials in `.env`, and generate the complete inference stack with one command.

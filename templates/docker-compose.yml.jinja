@@ -31,7 +31,7 @@ services:
       {% for k, v in m["docker-env"].items() %}
       - {{ k }}={{ v }}{% endfor %}
     volumes:
-      - {{ hf_home_path }}:/root/.cache/huggingface
+      - ${HF_HOME_PATH}:/root/.cache/huggingface
     ipc: host
     deploy:
       resources:
@@ -88,6 +88,8 @@ services:
     restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+    volumes:
+      - langfuse-redis-data:/data
     logging:
       driver: json-file
       options:
@@ -98,14 +100,14 @@ services:
   langfuse-minio:
     image: {{ minio_image }}
     restart: always
-    command: server /data --console-address ":9001"
+    command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
     environment:
       MINIO_ROOT_USER: ${LANGFUSE_S3_ACCESS_KEY_ID}
       MINIO_ROOT_PASSWORD: ${LANGFUSE_S3_SECRET_ACCESS_KEY}
     volumes:
       - langfuse-minio-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${MINIO_PORT}/minio/health/live || exit 1"]
     logging:
       driver: json-file
       options:
@@ -134,7 +136,7 @@ services:
       S3_EVENT_UPLOAD_REGION: us-east-1
       S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY_ID}
       S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_ACCESS_KEY}
-      S3_EVENT_UPLOAD_ENDPOINT: ${MINIO_URL}
+      S3_EVENT_UPLOAD_ENDPOINT: http://localhost:${MINIO_PORT}
       S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
       LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
@@ -247,4 +249,5 @@ volumes:
 {% if langfuse_enabled %}
   langfuse-clickhouse-data:
   langfuse-minio-data:
+  langfuse-redis-data:
 {% endif %}

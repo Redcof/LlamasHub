@@ -3,13 +3,14 @@
         "# comment": "plain qwen3b 8k with 1 GPU",
         "active": true,
         "id": "qwen-3b",
-        "model_name": "i3B8k",
-        "hf_repo": "Qwen/Qwen2.5-Coder-3B-Instruct",
+        "model_name": "qwen-2.5-3B",
+        "hf_repo": "Qwen/Qwen2.5-3B-Instruct",
         "image": "vllm/vllm-openai:v0.11.0",
         "port": 8000,
         "docker-env": {
             "NVIDIA_VISIBLE_DEVICES": "0",
-            "CUDA_VISIBLE_DEVICES": 0
+            "CUDA_VISIBLE_DEVICES": 0,
+            "HF_HUB_DISABLE_XET": "1"
         },
         "vllm-commands": {
             "uvicorn-log-level": "debug",
