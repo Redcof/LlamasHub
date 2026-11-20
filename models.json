@@ -1,5 +1,27 @@
 [
     {
+        "# comment": "plain qwen3b 8k with 1 GPU",
+        "active": true,
+        "id": "qwen-3b",
+        "model_name": "i3B8k",
+        "hf_repo": "Qwen/Qwen2.5-Coder-3B-Instruct",
+        "image": "vllm/vllm-openai:v0.11.0",
+        "port": 8000,
+        "docker-env": {
+            "NVIDIA_VISIBLE_DEVICES": "0",
+            "CUDA_VISIBLE_DEVICES": 0
+        },
+        "vllm-commands": {
+            "uvicorn-log-level": "debug",
+            "gpu-memory-utilization": 0.95,            
+            "max_model_len": 8192,
+            "tensor-parallel-size": 1,
+            "enable-auto-tool-choice": "",
+            "tool-call-parser": "hermes",
+            "generation-config": "vllm"
+        }
+    },
+    {
         "# comment": "plain qwen7b 32k with 1 GPU",
         "active": false,
         "id": "qwen-7b",
@@ -76,7 +98,7 @@
     },
     {
         "# comment": "plain qwen30b fp8 131k with 2 GPU",
-        "active": true,
+        "active": false,
         "id": "qwen-30b",
         "model_name": "i30B131k",
         "hf_repo": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",

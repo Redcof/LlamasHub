@@ -1,0 +1,225 @@
+services:
+  db:
+    image: postgres:15.5-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:${PGDATA_PATH}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+  vllm-qwen-3b:
+    image: vllm/vllm-openai:v0.11.0
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+      - VLLM_ENABLE_CUDA_COMPATIBILITY=1
+      
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - $HOME/.cache/huggingface:/root/.cache/huggingface
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+    command: >
+    
+      Qwen/Qwen2.5-Coder-3B-Instruct
+      --port 8000
+      
+      --uvicorn-log-level debug
+      --gpu-memory-utilization 0.95
+      --max_model_len 8192
+      --tensor-parallel-size 1
+      --enable-auto-tool-choice 
+      --tool-call-parser hermes
+      --generation-config vllm
+    
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 100
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24.8.14.39-alpine
+    restart: always
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: ${CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT}
+    volumes:
+      - langfuse-clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8123/ping | grep Ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+  langfuse-redis:
+    image: redis:7.4.2-alpine
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+  langfuse-minio:
+    image: alpine/minio:951e146
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_S3_SECRET_ACCESS_KEY}
+    volumes:
+      - langfuse-minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+  langfuse:
+    image: langfuse/langfuse:2.95.9
+    restart: always
+    ports:
+      - "${LANGFUSE_PORT}:${LANGFUSE_PORT}"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NEXTAUTH_URL: ${LANGFUSE_HOST}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+      TELEMETRY_ENABLED: "true"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER}:${CLICKHOUSE_PASSWORD}@langfuse-clickhouse:9000/default
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      REDIS_CONNECTION_STRING: ${REDIS_URL}
+      S3_EVENT_UPLOAD_BUCKET: langfuse
+      S3_EVENT_UPLOAD_REGION: us-east-1
+      S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_ACCESS_KEY_ID}
+      S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_SECRET_ACCESS_KEY}
+      S3_EVENT_UPLOAD_ENDPOINT: ${MINIO_URL}
+      S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME}
+      LANGFUSE_INIT_PROJECT_ID: llamashub
+      LANGFUSE_INIT_PROJECT_NAME: Llamashub
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD}
+      LANGFUSE_MARKDOWN_RENDER_CHARACTER_LIMIT: 50000
+      LANGFUSE_MCP_ALLOWED_HOSTS: localhost,127.0.0.1
+      LANGFUSE_IN_APP_AGENT_MAX_ACTIVE_RUNS_PER_USER: 10
+      LANGFUSE_IN_APP_AGENT_MAX_ACTIVE_RUNS_PER_ORG: 100
+    depends_on:
+      db:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://$(hostname -i):${LANGFUSE_PORT}/api/public/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+
+  litellm:
+    image: litellm/litellm:v1.100.0
+    restart: always
+    ports:
+      - "${LITELLM_PORT}:${LITELLM_PORT}"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - UI_USERNAME=${UI_USERNAME}
+      - UI_PASSWORD=${UI_PASSWORD}
+      - REDIS_URL=${REDIS_URL}
+
+    volumes:
+      - ./quick-start-litellm_config.yaml:/app/config.yaml
+    env_file:
+      - .env
+    command: --config /app/config.yaml --port ${LITELLM_PORT}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${LITELLM_PORT}/health/readiness', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+    depends_on:
+      db:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+
+      vllm-qwen-3b:
+        condition: service_healthy
+
+
+      langfuse:
+        condition: service_healthy
+
+
+volumes:
+  pgdata:
+
+  langfuse-clickhouse-data:
+  langfuse-minio-data:

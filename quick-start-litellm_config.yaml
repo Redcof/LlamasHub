@@ -1,0 +1,31 @@
+model_list:
+
+  - model_name: i3B8k
+    litellm_params:
+      model: hosted_vllm/Qwen/Qwen2.5-Coder-3B-Instruct
+      api_base: http://vllm-qwen-3b:8000/v1
+      max_tokens: 4096
+      drop_params: true
+      temperature: 0.1
+      top_p: 0.85
+      repetition_penalty: 1.15
+      presence_penalty: 0.2
+    model_info:
+      input_cost_per_token: 0.00000003
+      output_cost_per_token: 0.00000009
+
+
+
+
+general_settings:
+  max_budget: 20
+  default_key_max_budget: 20
+  budget_duration: 1mo
+  redis_url: redis://langfuse-redis:6379
+litellm_settings:
+  set_verbose: false
+  json_logs: false
+
+  callbacks:
+
+    - langfuse
