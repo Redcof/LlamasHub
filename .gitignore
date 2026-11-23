@@ -7,3 +7,4 @@ graphify-out
 .envrc
 /docker-compose.yml
 /litellm_config.yaml
+*.crt
